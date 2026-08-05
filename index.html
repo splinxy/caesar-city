@@ -43,10 +43,10 @@
   #tools{position:absolute;bottom:0;left:0;right:0;z-index:6;
     padding:8px calc(var(--safe-r) + 8px) calc(var(--safe-b) + 8px) calc(var(--safe-l) + 8px);
     background:linear-gradient(#1b141000,#1b1410cc 45%,#1b1410f5);display:flex;gap:8px;align-items:center}
-  .btn{background:linear-gradient(#4b3a2a,#33271c);border:1px solid #ffffff20;border-radius:13px;color:var(--parch);
-    font-size:13px;font-weight:600;padding:0 12px;height:52px;display:flex;align-items:center;justify-content:center;gap:6px;
-    flex-direction:column;line-height:1.15;min-width:52px}
-  .btn .ic{font-size:19px;line-height:1}
+  .btn{background:linear-gradient(#4b3a2a,#33271c);border:1px solid #ffffff20;border-radius:14px;color:var(--parch);
+    font-size:13px;font-weight:600;padding:0 12px;height:60px;display:flex;align-items:center;justify-content:center;gap:5px;
+    flex-direction:column;line-height:1.15;min-width:62px}
+  .btn .ic{font-size:21px;line-height:1}
   .btn:active{transform:scale(.95)}
   .btn.on{background:linear-gradient(#c9a94e,#9c7c2c);color:#20180f;border-color:#ffe9a8}
   #bBuild{flex:1;font-size:15px}
@@ -62,13 +62,13 @@
   #cats::-webkit-scrollbar{display:none}
   .cat{white-space:nowrap;background:#ffffff12;border:1px solid #ffffff18;border-radius:20px;padding:7px 13px;font-size:13px;font-weight:600}
   .cat.on{background:var(--gold);color:#20180f;border-color:#ffe9a8}
-  #items{overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px;padding:2px 0 4px}
-  .item{background:#ffffff0e;border:1px solid #ffffff18;border-radius:12px;padding:8px 6px;text-align:center;min-height:78px;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
-  .item:active{background:#ffffff22}
-  .item .em{font-size:22px;line-height:1}
-  .item .nm{font-size:11.5px;font-weight:600;line-height:1.2}
-  .item .cs{font-size:10.5px;color:var(--gold)}
+  #items{overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;padding:2px 0 4px}
+  .item{background:#ffffff0e;border:1px solid #ffffff18;border-radius:13px;padding:9px 6px;text-align:center;min-height:92px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+  .item:active{background:#ffffff22;transform:scale(.96)}
+  .item .em{font-size:26px;line-height:1}
+  .item .nm{font-size:12.5px;font-weight:600;line-height:1.2}
+  .item .cs{font-size:11.5px;color:var(--gold)}
   .item.locked{opacity:.42}
 
   /* ---------- info panel ---------- */
@@ -83,6 +83,18 @@
   #panel .bar i{display:block;height:100%;background:linear-gradient(90deg,#c9a94e,#e8d18a)}
   #panel .acts{display:flex;gap:7px;margin-top:9px}
   #panel .acts .btn{height:38px;flex-direction:row;font-size:12.5px;border-radius:10px;flex:1}
+
+  /* ---------- active tool chip ---------- */
+  #curTool{position:absolute;left:50%;transform:translateX(-50%) translateY(14px);
+    bottom:calc(var(--safe-b) + 78px);z-index:7;display:none;align-items:center;gap:8px;
+    background:linear-gradient(#c9a94e,#a5842f);color:#231a0e;border:1px solid #ffe9a8;
+    border-radius:22px;padding:9px 8px 9px 15px;font-size:14px;font-weight:700;
+    box-shadow:0 6px 18px #0007;opacity:0;transition:opacity .18s,transform .18s;white-space:nowrap}
+  #curTool.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+  #curTool .ic{font-size:17px}
+  #curTool b{font-weight:800}
+  #curTool .xx{display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:50%;background:#00000026;font-size:14px;margin-inline-start:2px}
 
   /* ---------- toast ---------- */
   #toast{position:absolute;top:calc(var(--safe-t) + 88px);left:50%;transform:translateX(-50%);z-index:9;
@@ -134,6 +146,7 @@
   <div id="items"></div>
 </div>
 
+<div id="curTool"></div>
 <div id="panel"></div>
 <div id="toast"></div>
 
@@ -233,7 +246,7 @@ const OV_HE={des:'יוקרה',fire:'כיבוי אש',water:'אספקת מים'};
 function newState(seed){
   const st={
     seed:seed>>>0, terr:new Uint8Array(GRID*GRID), occ:new Int32Array(GRID*GRID),
-    rubble:new Uint8Array(GRID*GRID),
+    rubble:new Uint8Array(GRID*GRID), tint:new Uint8Array(GRID*GRID), deco:new Uint8Array(GRID*GRID),
     bl:{}, nextId:1, money:6000, month:0, year:-320, tax:7,
     mood:55, food:0, pop:0, workers:0, jobs:0, employed:0, unemp:0,
     speed:1, income:0, expense:0, lastFoodOK:true, foodRatio:1, rank:0, msgs:0
@@ -285,6 +298,18 @@ function genMap(st){
   const c=(GRID/2)|0;
   for(let x=c-4;x<=c+4;x++)for(let y=c-4;y<=c+4;y++)
     if(inb(x,y)&&T[idx(x,y)]!==T_WATER&&T[idx(x,y)]!==T_FERT) T[idx(x,y)]=T_GRASS;
+  // גיוון ויזואלי קבוע לכל אריח — נגזר מהזרע, כדי שהקרקע לא תיראה כמו לוח שחמט
+  for(let x=0;x<GRID;x++)for(let y=0;y<GRID;y++){
+    const i=idx(x,y), n=noise(x,y,st.seed);
+    st.tint[i]=Math.min(3,(n*4)|0);
+    st.deco[i]=noise(x*3,y*3,st.seed^0x9e37)>0.82?1:0;
+  }
+}
+// רעש דטרמיניסטי לכל אריח
+function noise(x,y,seed){
+  let n=(x*374761393)^(y*668265263)^(seed*1442695040888963407);
+  n=Math.imul(n^(n>>>13),1274126177);
+  return ((n^(n>>>16))>>>0)/4294967296;
 }
 
 /* ============================ עזרי בניינים ============================ */
@@ -629,6 +654,121 @@ function monthTick(){
   dirty=true; updateUI();
 }
 
+/* ============================ תושבים ============================
+   הולכי הרגל של Caesar 3: כל מבנה שירות מאויש שולח אנשים לצעוד
+   בכבישים, ובתים שולחים תושבים לשוק ובחזרה. הם לא משפיעים על
+   הסימולציה — הם מה שהופך את העיר לחיה. */
+const walkers=[];
+const WALK_TYPES={
+  market:  {body:'#e8dcc0',head:'#d8b48c',hat:null,   n:2},
+  temple:  {body:'#f4efe2',head:'#d8b48c',hat:'#e8d9a8',n:1},
+  prefect: {body:'#b8483a',head:'#d8b48c',hat:'#9a9a9a',n:1},
+  engineer:{body:'#6f7b8c',head:'#d8b48c',hat:'#c9a94e',n:1},
+  forum:   {body:'#e2d2a8',head:'#d8b48c',hat:null,   n:1},
+  doctor:  {body:'#e7f0e4',head:'#d8b48c',hat:null,   n:1},
+  theatre: {body:'#c9a94e',head:'#d8b48c',hat:null,   n:1},
+  baths:   {body:'#dfe9ef',head:'#d8b48c',hat:null,   n:1},
+  home:    {body:'#c98f5a',head:'#d8b48c',hat:null,   n:1},
+  cart:    {body:'#8a6a3c',head:'#d8b48c',hat:null,   n:1}
+};
+function isRoadT(x,y){ const b=bAt(x,y); return !!(b&&b.t==='road'); }
+
+// מסלול אקראי בכבישים, בלי לחזור מיד אחורה
+function roamPath(sx,sy,len){
+  const path=[[sx,sy]]; let cx=sx,cy=sy,px=-1,py=-1;
+  for(let i=0;i<len;i++){
+    const opts=[[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]
+      .filter(p=>isRoadT(p[0],p[1])&&!(p[0]===px&&p[1]===py));
+    if(!opts.length){
+      if(isRoadT(px,py)) { path.push([px,py]); const t=[cx,cy]; cx=px;cy=py;px=t[0];py=t[1]; continue; }
+      break;
+    }
+    const n=opts[(Math.random()*opts.length)|0];
+    px=cx;py=cy; cx=n[0];cy=n[1];
+    path.push([cx,cy]);
+  }
+  return path;
+}
+function spawnWalker(b,kind){
+  if(walkers.length>70) return;
+  let start=null;
+  for(const[X,Y]of ring(b.x,b.y,b.s)) if(isRoadT(X,Y)){ start=[X,Y]; break; }
+  if(!start) return;
+  const path=roamPath(start[0],start[1],8+((Math.random()*8)|0));
+  if(path.length<2) return;
+  walkers.push({p:path,i:0,t:Math.random()*0.3,kind,sp:0.55+Math.random()*0.35,
+    life:path.length*1.9+2});
+}
+function updateWalkers(dt){
+  // תחזוקת אוכלוסייה של הולכי רגל
+  if(walkerTimer<=0){
+    walkerTimer=0.22;
+    const cands=[];
+    for(const id in S.bl){ const b=S.bl[id], d=B[b.t];
+      if(b.noRoad) continue;
+      if(d.svc&&d.svc!=='water'&&b.staff>=0.25) cands.push([b,b.t]);
+      else if(d.home&&b.people>0) cands.push([b,'home']);
+      else if(d.food&&b.staff>0.3) cands.push([b,'cart']);
+    }
+    // ככל שהעיר גדולה יותר, כך רחובותיה הומים יותר
+    const want=Math.min(70,6+Math.floor(S.pop/14));
+    if(cands.length && walkers.length<want){
+      for(let k=0;k<2&&walkers.length<want;k++){
+        const c=cands[(Math.random()*cands.length)|0];
+        spawnWalker(c[0],WALK_TYPES[c[1]]?c[1]:'home');
+      }
+    }
+  }
+  walkerTimer-=dt;
+  for(let i=walkers.length-1;i>=0;i--){
+    const w=walkers[i];
+    w.t+=dt*w.sp; w.life-=dt;
+    while(w.t>=1){ w.t-=1; w.i++; }
+    if(w.i>=w.p.length-1||w.life<=0){ walkers.splice(i,1); continue; }
+  }
+}
+let walkerTimer=0;
+function drawWalkers(minX,maxX,minY,maxY){
+  for(const w of walkers){
+    const a=w.p[w.i], b2=w.p[w.i+1];
+    if(!a||!b2) continue;
+    const gx=a[0]+(b2[0]-a[0])*w.t+0.5, gy=a[1]+(b2[1]-a[1])*w.t+0.5;
+    if(gx<minX-1||gx>maxX+2||gy<minY-1||gy>maxY+2) continue;
+    const p=V(gx,gy), st=WALK_TYPES[w.kind]||WALK_TYPES.home;
+    const bob=Math.abs(Math.sin(w.t*Math.PI*2))*1.3;
+    ctx.fillStyle='rgba(20,28,12,0.32)';
+    ctx.beginPath();ctx.ellipse(p[0],p[1],4,2,0,0,6.3);ctx.fill();
+    // רגליים
+    ctx.fillStyle='#6b543a';
+    const sw=Math.sin(w.t*Math.PI*2)*1.6;
+    ctx.fillRect(p[0]-2+sw*0.4,p[1]-3.4-bob,1.5,3.4);
+    ctx.fillRect(p[0]+0.6-sw*0.4,p[1]-3.4-bob,1.5,3.4);
+    // גוף (טוגה)
+    ctx.fillStyle=st.body;
+    ctx.beginPath();
+    ctx.moveTo(p[0]-3,p[1]-2.8-bob);
+    ctx.lineTo(p[0]+3,p[1]-2.8-bob);
+    ctx.lineTo(p[0]+2,p[1]-9.4-bob);
+    ctx.lineTo(p[0]-2,p[1]-9.4-bob);
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,0.14)';
+    ctx.beginPath();
+    ctx.moveTo(p[0]+0.6,p[1]-2.8-bob);ctx.lineTo(p[0]+3,p[1]-2.8-bob);
+    ctx.lineTo(p[0]+2,p[1]-9.4-bob);ctx.lineTo(p[0]+0.6,p[1]-9.4-bob);
+    ctx.closePath();ctx.fill();
+    // ראש
+    ctx.fillStyle=st.head;
+    ctx.beginPath();ctx.arc(p[0],p[1]-11.2-bob,2.3,0,6.3);ctx.fill();
+    ctx.fillStyle='#3d2a1c';
+    ctx.beginPath();ctx.arc(p[0],p[1]-12.1-bob,2.3,3.34,6.28);ctx.fill();
+    if(st.hat){ ctx.fillStyle=st.hat;
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-12.8-bob,3.1,1.3,0,0,6.3);ctx.fill(); }
+    if(w.kind==='cart'){ ctx.fillStyle='#a3783f';
+      ctx.fillRect(p[0]+3.2,p[1]-7.5-bob,5,5);
+      ctx.fillStyle='#7c5a30'; ctx.fillRect(p[0]+3.2,p[1]-7.5-bob,5,1.4); }
+  }
+}
+
 /* היועץ של העיר — מצביע על הצוואר-בקבוק הכי דחוף */
 function advise(){
   if(!S.pop) return;
@@ -699,15 +839,80 @@ function roof(x,y,s,h,rh,c1,c2){
   ctx.beginPath();ctx.moveTo(b[0],b[1]-h);ctx.lineTo(a[0],a[1]-h);ctx.lineTo(mx,my);ctx.closePath();ctx.fill();
 }
 
-function terrainColor(t,x,y){
-  const v=((x*7+y*13)%5)-2;
+/* לוחות צבע לקרקע — ארבעה גוונים קרובים לכל סוג, נבחרים לפי הרעש של האריח */
+const PAL={
+  grass:['#587239','#5c763d','#547038','#5f793f'],
+  fert: ['#7b8a48','#7f8e4c','#788745','#83924f'],
+  tree: ['#3e5a2c','#436030','#395428','#486534'],
+  rock: ['#6d685c','#767063','#656055','#7c7669']
+};
+function terrainColor(t,i){
+  const v=S.tint[i];
   switch(t){
-    case T_WATER:return '#2b6b8c';
-    case T_FERT: return v>0?'#87994c':'#7e9147';
-    case T_TREE: return '#3f5c2e';
-    case T_ROCK: return '#6b6459';
-    default:     return v>0?'#5e7d40':'#57753b';
+    case T_FERT: return PAL.fert[v];
+    case T_TREE: return PAL.tree[v];
+    case T_ROCK: return PAL.rock[v];
+    default:     return PAL.grass[v];
   }
+}
+/* גג רומי אמיתי עם רכס — הגמלון פונה אל הצופה (למטה-ימין) */
+function gable(x,y,s,h,rise,cTop,cSide,cEnd){
+  const A=V(x,y),Bp=V(x+s,y),C=V(x+s,y+s),D=V(x,y+s);
+  const R1=[(A[0]+D[0])/2,(A[1]+D[1])/2-h-rise], R2=[(Bp[0]+C[0])/2,(Bp[1]+C[1])/2-h-rise];
+  const poly=(pts,c)=>{ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
+  const up=p=>[p[0],p[1]-h];
+  poly([up(A),up(Bp),R2,R1],cTop);            // מדרון אחורי
+  poly([up(D),up(C),R2,R1],cSide);            // מדרון קדמי
+  poly([up(Bp),up(C),R2],cEnd);               // גמלון גלוי
+  // רעפים
+  ctx.strokeStyle='rgba(60,24,16,0.22)'; ctx.lineWidth=1;
+  for(let k=1;k<=4;k++){ const f=k/5;
+    const a=[up(D)[0]+(up(C)[0]-up(D)[0])*f, up(D)[1]+(up(C)[1]-up(D)[1])*f];
+    const b=[R1[0]+(R2[0]-R1[0])*f, R1[1]+(R2[1]-R1[1])*f];
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  }
+  return {R1,R2,front:[up(Bp),up(C),R2]};
+}
+/* לוח אופקי (כרכוב) — קירות רק בין שני גבהים, כדי לא להסתיר עמודים */
+function slab(x,y,s,y0,th,cTop,cL,cR){
+  const A=V(x,y),Bp=V(x+s,y),C=V(x+s,y+s),D=V(x,y+s);
+  ctx.fillStyle=cL;
+  ctx.beginPath();ctx.moveTo(D[0],D[1]-y0);ctx.lineTo(C[0],C[1]-y0);
+  ctx.lineTo(C[0],C[1]-y0-th);ctx.lineTo(D[0],D[1]-y0-th);ctx.closePath();ctx.fill();
+  ctx.fillStyle=cR;
+  ctx.beginPath();ctx.moveTo(C[0],C[1]-y0);ctx.lineTo(Bp[0],Bp[1]-y0);
+  ctx.lineTo(Bp[0],Bp[1]-y0-th);ctx.lineTo(C[0],C[1]-y0-th);ctx.closePath();ctx.fill();
+  ctx.fillStyle=cTop;
+  ctx.beginPath();ctx.moveTo(A[0],A[1]-y0-th);ctx.lineTo(Bp[0],Bp[1]-y0-th);
+  ctx.lineTo(C[0],C[1]-y0-th);ctx.lineTo(D[0],D[1]-y0-th);ctx.closePath();ctx.fill();
+}
+/* עמוד רומי בודד */
+function column(gx,gy,base,ht,w){
+  const p=V(gx,gy), y0=p[1]-base;
+  ctx.fillStyle='#f6efdc'; ctx.fillRect(p[0]-w/2,y0-ht,w,ht);
+  ctx.fillStyle='#d5cbb0'; ctx.fillRect(p[0]+w/2-1.1,y0-ht,1.1,ht);
+  ctx.fillStyle='#fdf8ea'; ctx.fillRect(p[0]-w/2-1,y0-ht-2.4,w+2,2.4);
+  ctx.fillRect(p[0]-w/2-1,y0-2.2,w+2,2.2);
+}
+/* שדרת עמודים לאורך שתי הפאות הגלויות */
+function colonnade(x,y,s,base,ht,n,w){
+  for(let k=0;k<=n;k++) column(x+s, y+s-(s*k/n), base, ht, w);   // פאה ימנית
+  for(let k=0;k<n;k++)  column(x+(s*k/n), y+s, base, ht, w);     // פאה שמאלית
+}
+/* בסיס מדורג */
+function podium(x,y,s,h,c1,c2,c3){
+  box(x,y,s,h,c1,c2,c3);
+  box(x+0.09,y+0.09,s-0.18,h+2.5,c1,c2,c3);
+}
+/* צל רך מתחת למבנה — כיוון האור מלמעלה-שמאל */
+function shadow(x,y,s,h){
+  ctx.save();
+  ctx.translate(h*0.42,h*0.2);
+  diamond(x,y,s);
+  ctx.fillStyle='rgba(22,32,14,0.26)';
+  ctx.fill();
+  ctx.restore();
 }
 
 function draw(){
@@ -725,16 +930,42 @@ function draw(){
   const maxY=clamp(Math.max(c0[1],c1[1],c2[1],c3[1])+2,0,GRID-1);
 
   // קרקע
-  const t=Date.now()/1000;
+  const t=Date.now()/1000, detail=cam.z>0.7;
   for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
-    const tr=S.terr[idx(x,y)];
+    const i=idx(x,y), tr=S.terr[i];
     diamond(x,y,1);
     if(tr===T_WATER){
-      const w=Math.sin((x+y)*0.9+t*1.6)*0.5+0.5;
-      ctx.fillStyle='rgb('+(38+w*14|0)+','+(104+w*18|0)+','+(138+w*16|0)+')';
-    } else ctx.fillStyle=terrainColor(tr,x,y);
+      const w=Math.sin((x*1.3+y*0.7)+t*1.5)*0.5+0.5, w2=Math.sin((x-y)*0.8-t*1.1)*0.5+0.5;
+      ctx.fillStyle='rgb('+(30+w*16|0)+','+(92+w2*22|0)+','+(126+w*20|0)+')';
+    } else ctx.fillStyle=terrainColor(tr,i);
     ctx.fill();
-    if(cam.z>0.62){ ctx.strokeStyle='#00000018'; ctx.lineWidth=0.6; ctx.stroke(); }
+    if(!detail) continue;
+    const p=V(x+0.5,y+0.5);
+    if(tr===T_WATER){
+      // קצף על קו החוף
+      for(const[dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){
+        if(!inb(x+dx,y+dy)||S.terr[idx(x+dx,y+dy)]===T_WATER) continue;
+        const a=V(x+(dx>0?1:0),y+(dy>0?1:0)), b=V(x+(dx>0?1:dy>0?1:0),y+(dy>0?1:dx>0?0:0));
+        ctx.strokeStyle='rgba(190,225,235,0.32)'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+      }
+      // ניצנוץ
+      if(S.deco[i]){ ctx.fillStyle='rgba(220,240,250,0.22)';
+        ctx.beginPath(); ctx.ellipse(p[0],p[1]+Math.sin(t*1.4+x)*1.5,6,1.6,0,0,6.3); ctx.fill(); }
+    } else if(tr===T_FERT){
+      // תלמים בשדה
+      ctx.strokeStyle='rgba(60,72,30,0.16)'; ctx.lineWidth=1;
+      for(let k=1;k<4;k++){
+        const a=V(x,y+k/4), b=V(x+1,y+k/4);
+        ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+      }
+    } else if(tr===T_GRASS && S.deco[i] && !S.occ[i]){
+      // ציצות דשא
+      ctx.strokeStyle='rgba(40,60,24,0.4)'; ctx.lineWidth=1.2;
+      for(let k=-1;k<=1;k++){
+        ctx.beginPath(); ctx.moveTo(p[0]+k*5,p[1]+1); ctx.lineTo(p[0]+k*5-1.5,p[1]-4); ctx.stroke();
+      }
+    }
   }
   // עצים וסלעים
   for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
@@ -764,36 +995,79 @@ function draw(){
   }
   list.sort((a,b)=>(a.x+a.y)-(b.x+b.y));
   for(const b of list) drawB(b);
+  drawWalkers(minX,maxX,minY,maxY);
 
-  // רמז בנייה
+  // תצוגה מקדימה של הבנייה/ההריסה מתחת לאצבע
   if(ghost && ghost.length){
+    const sz=dozing?1:B[tool].s;
+    let anyOk=false, lastP=null;
     for(const[x,y]of ghost){
-      const ok=canPlace(tool,x,y,true);
-      diamond(x,y,B[tool].s);
-      ctx.fillStyle=ok?'rgba(216,180,90,.42)':'rgba(210,70,50,.42)';
-      ctx.fill(); ctx.strokeStyle=ok?'#ffe9a8':'#ff9a86'; ctx.lineWidth=1.4; ctx.stroke();
+      const ok=dozing ? !!(bAt(x,y)||S.rubble[idx(x,y)]) : canPlace(tool,x,y,true);
+      if(ok) anyOk=true;
+      diamond(x,y,sz);
+      ctx.fillStyle=dozing
+        ? (ok?'rgba(214,86,60,.45)':'rgba(120,120,120,.28)')
+        : (ok?'rgba(216,180,90,.42)':'rgba(210,70,50,.42)');
+      ctx.fill();
+      ctx.strokeStyle=ok?(dozing?'#ff9a86':'#ffe9a8'):'#ff9a86'; ctx.lineWidth=2; ctx.stroke();
+      lastP=V(x+sz/2,y);
+    }
+    // תווית מעל האצבע כדי שהיד לא תסתיר את מה שבונים
+    if(lastP){
+      const label=dozing?'הריסה':(B[tool].n+'  '+B[tool].cost+' ₪'
+        +(ghost.length>1?'  ×'+ghost.length:''));
+      ctx.font='700 12px -apple-system,sans-serif'; ctx.textAlign='center';
+      const w=ctx.measureText(label).width+16, ly=lastP[1]-42;
+      ctx.fillStyle=anyOk?'rgba(28,22,14,0.88)':'rgba(120,36,26,0.9)';
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(lastP[0]-w/2,ly,w,20,7); else ctx.rect(lastP[0]-w/2,ly,w,20);
+      ctx.fill();
+      ctx.fillStyle=anyOk?'#ffe9a8':'#ffd9d0';
+      ctx.fillText(label,lastP[0],ly+14);
+      ctx.beginPath();ctx.moveTo(lastP[0]-5,ly+20);ctx.lineTo(lastP[0]+5,ly+20);ctx.lineTo(lastP[0],ly+26);
+      ctx.closePath();ctx.fillStyle=anyOk?'rgba(28,22,14,0.88)':'rgba(120,36,26,0.9)';ctx.fill();
     }
   }
   if(sel){ diamond(sel.x,sel.y,sel.s); ctx.strokeStyle='#ffe9a8'; ctx.lineWidth=2; ctx.stroke(); }
+  drawDemoLabels();
 
   ctx.restore();
   dirty=false;
 }
 
 function drawTree(x,y){
-  const p=V(x+0.5,y+0.5), r=((x*13+y*7)%3);
-  ctx.fillStyle='#4a3524'; ctx.fillRect(p[0]-1.4,p[1]-9,2.8,9);
-  ctx.fillStyle='#2f5223';
-  ctx.beginPath();ctx.arc(p[0],p[1]-13-r,7+r,0,6.3);ctx.fill();
-  ctx.fillStyle='#3d6a2c';
-  ctx.beginPath();ctx.arc(p[0]-2,p[1]-15-r,5+r*0.6,0,6.3);ctx.fill();
+  const p=V(x+0.5,y+0.5), i=idx(x,y), n=S.tint[i], cypress=S.deco[i];
+  ctx.save(); ctx.translate(p[0],p[1]);
+  ctx.fillStyle='rgba(24,36,16,0.3)';
+  ctx.beginPath(); ctx.ellipse(4,1,9,4.5,0,0,6.3); ctx.fill();
+  ctx.fillStyle='#4b3524'; ctx.fillRect(-1.6,-8,3.2,8);
+  if(cypress){                       // ברוש
+    ctx.fillStyle='#2c4a24';
+    ctx.beginPath(); ctx.moveTo(0,-30-n); ctx.quadraticCurveTo(7,-14,0,-5); ctx.quadraticCurveTo(-7,-14,0,-30-n); ctx.fill();
+    ctx.fillStyle='#3a5e2d';
+    ctx.beginPath(); ctx.moveTo(-1,-28-n); ctx.quadraticCurveTo(3,-14,-1,-6); ctx.quadraticCurveTo(-5,-15,-1,-28-n); ctx.fill();
+  } else {                           // עץ נשיר
+    ctx.fillStyle='#2f5223';
+    ctx.beginPath(); ctx.arc(0,-13-n,7.5+n*0.7,0,6.3); ctx.arc(5,-10,5.5,0,6.3); ctx.arc(-5,-10,5,0,6.3); ctx.fill();
+    ctx.fillStyle='#43702f';
+    ctx.beginPath(); ctx.arc(-2.5,-16-n,5.5,0,6.3); ctx.fill();
+    ctx.fillStyle='#54873a';
+    ctx.beginPath(); ctx.arc(-4,-18-n,2.8,0,6.3); ctx.fill();
+  }
+  ctx.restore();
 }
 function drawRock(x,y){
   const p=V(x+0.5,y+0.5);
-  ctx.fillStyle='#7a7268';ctx.beginPath();
-  ctx.moveTo(p[0]-9,p[1]);ctx.lineTo(p[0]-4,p[1]-10);ctx.lineTo(p[0]+3,p[1]-12);ctx.lineTo(p[0]+9,p[1]-2);ctx.lineTo(p[0]+4,p[1]+3);ctx.closePath();ctx.fill();
-  ctx.fillStyle='#94897c';ctx.beginPath();
-  ctx.moveTo(p[0]-4,p[1]-10);ctx.lineTo(p[0]+3,p[1]-12);ctx.lineTo(p[0]+2,p[1]-6);ctx.closePath();ctx.fill();
+  ctx.save(); ctx.translate(p[0],p[1]);
+  ctx.fillStyle='rgba(24,30,16,0.28)';
+  ctx.beginPath(); ctx.ellipse(4,1,10,4.5,0,0,6.3); ctx.fill();
+  ctx.fillStyle='#6a6459';
+  ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-5,-11); ctx.lineTo(2,-14); ctx.lineTo(9,-3); ctx.lineTo(4,3); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#8b8375';
+  ctx.beginPath(); ctx.moveTo(-5,-11); ctx.lineTo(2,-14); ctx.lineTo(3,-7); ctx.lineTo(-3,-5); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#a49b8b';
+  ctx.beginPath(); ctx.moveTo(-3,-12); ctx.lineTo(1,-13.5); ctx.lineTo(1,-10); ctx.closePath(); ctx.fill();
+  ctx.restore();
 }
 function drawRubble(x,y){
   diamond(x,y,1); ctx.fillStyle='#4a4038'; ctx.fill();
@@ -806,20 +1080,41 @@ function drawB(b){
   const d=B[b.t], x=b.x, y=b.y, s=b.s;
   switch(b.t){
     case 'road': {
-      diamond(x,y,1); ctx.fillStyle='#9b8a6e'; ctx.fill();
-      ctx.strokeStyle='#7d6d54'; ctx.lineWidth=0.8; ctx.stroke();
-      const p=V(x+0.5,y+0.5);
-      ctx.fillStyle='#8a7a60';
-      for(let i=0;i<3;i++) ctx.fillRect(p[0]-8+i*6,p[1]-2+((i%2)?1:-1),4,2.4);
+      const N=V(x,y), E=V(x+1,y), Sc=V(x+1,y+1), Wc=V(x,y+1), p=V(x+0.5,y+0.5);
+      diamond(x,y,1); ctx.fillStyle='#a3936f'; ctx.fill();
+      // אבני ריצוף
+      ctx.fillStyle='rgba(120,105,80,0.5)';
+      for(let k=0;k<4;k++){
+        const n=noise(x*4+k,y*4,S.seed), a=V(x+0.2+ (k%2)*0.45, y+0.2+((k/2)|0)*0.45);
+        ctx.beginPath(); ctx.ellipse(a[0]+n*4-2,a[1]+n*2-1,3.2,1.7,0,0,6.3); ctx.fill();
+      }
+      // אבני שפה בצדדים שאין בהם המשך כביש
+      const isR=(X,Y)=>{const b=bAt(X,Y);return b&&b.t==='road'};
+      ctx.strokeStyle='rgba(96,84,62,0.75)'; ctx.lineWidth=2;
+      const edge=(a,b)=>{ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke()};
+      if(!isR(x,y-1)) edge(N,E);
+      if(!isR(x-1,y)) edge(N,Wc);
+      if(!isR(x+1,y)) edge(E,Sc);
+      if(!isR(x,y+1)) edge(Wc,Sc);
       break;
     }
-    case 'plaza': { diamond(x,y,1); ctx.fillStyle='#ddd3bd'; ctx.fill(); ctx.strokeStyle='#c3b79c';ctx.lineWidth=.8;ctx.stroke(); break; }
+    case 'plaza': {
+      diamond(x,y,1); ctx.fillStyle='#ded4bd'; ctx.fill();
+      ctx.strokeStyle='rgba(150,138,112,0.55)'; ctx.lineWidth=1;
+      const a=V(x+0.5,y),b=V(x+0.5,y+1),c2=V(x,y+0.5),d2=V(x+1,y+0.5);
+      ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.moveTo(c2[0],c2[1]);ctx.lineTo(d2[0],d2[1]);ctx.stroke();
+      break;
+    }
     case 'garden': {
-      diamond(x,y,1); ctx.fillStyle='#4b7a34'; ctx.fill();
+      diamond(x,y,1); ctx.fillStyle='#4e7d36'; ctx.fill();
       const p=V(x+0.5,y+0.5);
-      ctx.fillStyle='#6aa049';
-      ctx.beginPath();ctx.arc(p[0]-6,p[1]-4,4.5,0,6.3);ctx.arc(p[0]+6,p[1]-2,4,0,6.3);ctx.arc(p[0],p[1]-8,5,0,6.3);ctx.fill();
-      ctx.fillStyle='#d3d76a';ctx.beginPath();ctx.arc(p[0]+2,p[1]-10,1.6,0,6.3);ctx.fill();
+      ctx.fillStyle='rgba(24,40,16,0.25)';
+      ctx.beginPath();ctx.ellipse(p[0]+2,p[1],11,5,0,0,6.3);ctx.fill();
+      ctx.fillStyle='#3f6b2c';
+      ctx.beginPath();ctx.arc(p[0]-6,p[1]-4,4.8,0,6.3);ctx.arc(p[0]+6,p[1]-2,4.2,0,6.3);ctx.arc(p[0],p[1]-8,5.4,0,6.3);ctx.fill();
+      ctx.fillStyle='#5f9942';
+      ctx.beginPath();ctx.arc(p[0]-7,p[1]-6,3,0,6.3);ctx.arc(p[0]-1,p[1]-10,3.4,0,6.3);ctx.fill();
+      ctx.fillStyle='#e0d977';ctx.beginPath();ctx.arc(p[0]+3,p[1]-9,1.7,0,6.3);ctx.arc(p[0]+7,p[1]-4,1.4,0,6.3);ctx.fill();
       break;
     }
     case 'aqueduct': {
@@ -857,23 +1152,51 @@ function drawB(b){
       break;
     }
     case 'house': {
-      const lv=b.level, h=8+lv*3.4;
+      const lv=b.level, h=8+lv*3.2, p=V(x+0.5,y+0.5);
       if(lv===0){
-        const p=V(x+0.5,y+0.5);
-        diamond(x,y,1);ctx.fillStyle='#6d7a4e';ctx.fill();
-        ctx.fillStyle='#b09a6d';
-        ctx.beginPath();ctx.moveTo(p[0]-9,p[1]+1);ctx.lineTo(p[0],p[1]-14);ctx.lineTo(p[0]+9,p[1]+1);ctx.closePath();ctx.fill();
-        ctx.fillStyle='#8d7a52';
-        ctx.beginPath();ctx.moveTo(p[0],p[1]+1);ctx.lineTo(p[0],p[1]-14);ctx.lineTo(p[0]+9,p[1]+1);ctx.closePath();ctx.fill();
+        // אוהלי מתיישבים
+        diamond(x,y,1);ctx.fillStyle='#6f7c50';ctx.fill();
+        ctx.fillStyle='rgba(24,34,14,0.28)';
+        ctx.beginPath();ctx.ellipse(p[0]+3,p[1]+1,11,5,0,0,6.3);ctx.fill();
+        for(const o of [[-5,2,0.8],[6,-1,1]]){
+          const H=15*o[2];
+          ctx.fillStyle='#b8a273';
+          ctx.beginPath();ctx.moveTo(p[0]+o[0]-8*o[2],p[1]+o[1]);ctx.lineTo(p[0]+o[0],p[1]+o[1]-H);ctx.lineTo(p[0]+o[0]+8*o[2],p[1]+o[1]);ctx.closePath();ctx.fill();
+          ctx.fillStyle='#8f7c54';
+          ctx.beginPath();ctx.moveTo(p[0]+o[0],p[1]+o[1]);ctx.lineTo(p[0]+o[0],p[1]+o[1]-H);ctx.lineTo(p[0]+o[0]+8*o[2],p[1]+o[1]);ctx.closePath();ctx.fill();
+          ctx.strokeStyle='#6b5a3a';ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(p[0]+o[0],p[1]+o[1]-H);ctx.lineTo(p[0]+o[0]+1.5,p[1]+o[1]-H-3);ctx.stroke();
+        }
       } else {
-        const wallT=lv>=5?'#efe6cf':lv>=3?'#e2d3ae':'#c9b087';
-        const wallL=lv>=5?'#bfb391':lv>=3?'#b3a480':'#9d8763';
-        const wallR=lv>=5?'#dcd1b6':lv>=3?'#cfc09c':'#b8a077';
+        shadow(x,y,1,h);
+        const wallT=lv>=5?'#f2e9d2':lv>=3?'#e6d8b4':'#cdb58c';
+        const wallL=lv>=5?'#b8ab88':lv>=3?'#ab9c78':'#94805c';
+        const wallR=lv>=5?'#ddd1b4':lv>=3?'#d0c19c':'#b9a178';
         box(x+0.08,y+0.08,0.84,h,wallT,wallL,wallR);
-        roof(x+0.02,y+0.02,0.96,h,7+lv,'#8f4a33','#a95a3e');
-        const p=V(x+0.5,y+0.5);
-        ctx.fillStyle='#4a3a28';ctx.fillRect(p[0]-2,p[1]-h+1,4,Math.min(6,h-2));
-        if(lv>=4){ ctx.fillStyle='#d9c98f'; ctx.fillRect(p[0]-11,p[1]-h-2,3,3); ctx.fillRect(p[0]+8,p[1]-h-2,3,3); }
+        const rh=7+lv*0.8;
+        roof(x+0.01,y+0.01,0.98,h,rh,'#8a4630','#a85a3c');
+        // שורות רעפים
+        ctx.strokeStyle='rgba(70,28,18,0.28)'; ctx.lineWidth=1;
+        for(let k=1;k<=3;k++){
+          const f=k/4, a=V(x+0.01+0.98*f/2,y+0.01+0.98*f/2);
+          const w=(0.98*(1-f))/2;
+          const c1=V(x+0.01+0.98*f/2, y+0.99-0.98*f/2), c2=V(x+0.99-0.98*f/2, y+0.01+0.98*f/2);
+          ctx.beginPath();
+          ctx.moveTo(c1[0],c1[1]-h-rh*f); ctx.lineTo(a[0],a[1]-h-rh*f); ctx.lineTo(c2[0],c2[1]-h-rh*f);
+          ctx.stroke();
+        }
+        // דלת וחלונות
+        ctx.fillStyle='#4b3826'; ctx.fillRect(p[0]-2.4,p[1]-h+1,4.8,Math.min(7,h-2));
+        if(lv>=2){ ctx.fillStyle='rgba(60,45,30,0.75)';
+          ctx.fillRect(p[0]-11,p[1]-h-1,3.2,3.2); ctx.fillRect(p[0]+8,p[1]-h-1,3.2,3.2); }
+        if(lv>=4){ // מרפסת עמודים
+          ctx.fillStyle='#f4ecd8';
+          for(let k=0;k<3;k++){ const q=V(x+0.2+k*0.3,y+0.98); ctx.fillRect(q[0]-1.3,q[1]-h+1,2.6,h-3); }
+        }
+        if(lv>=6){ // גינת פאר על הגג
+          ctx.fillStyle='#4f8038';
+          ctx.beginPath();ctx.arc(p[0]-6,p[1]-h-rh-2,3.4,0,6.3);ctx.arc(p[0]+5,p[1]-h-rh-1,3,0,6.3);ctx.fill();
+        }
       }
       if(b.hunger>2) warn(x,y,s,'🍽');
       break;
@@ -893,64 +1216,115 @@ function drawB(b){
       break;
     }
     case 'granary': {
-      box(x+0.05,y+0.05,0.9,10,'#bda684','#8d7a58','#a4906a');
-      const p=V(x+s/2,y+s/2);
-      ctx.fillStyle='#d8c79f';
-      ctx.beginPath();ctx.ellipse(p[0]-9,p[1]-16,8,9,0,3.14,6.3);ctx.fill();
-      ctx.beginPath();ctx.ellipse(p[0]+9,p[1]-16,8,9,0,3.14,6.3);ctx.fill();
-      ctx.fillStyle='#a4906a';
-      ctx.beginPath();ctx.ellipse(p[0]-9,p[1]-16,8,3,0,0,6.3);ctx.fill();
-      ctx.beginPath();ctx.ellipse(p[0]+9,p[1]-16,8,3,0,0,6.3);ctx.fill();
+      shadow(x,y,s,18);
+      box(x+0.03,y+0.03,s-0.06,8,'#b09572','#867054','#9d8563'); // בסיס מוגבה
+      // ממגורות מכוסות
+      const silo=(sx,sy,r)=>{
+        const p2=V(sx,sy);
+        ctx.fillStyle='#c7b28c';
+        ctx.beginPath();ctx.ellipse(p2[0],p2[1]-8,r,r*0.5,0,0,6.3);ctx.fill();
+        ctx.fillStyle='#d9c8a2';
+        ctx.beginPath();ctx.moveTo(p2[0]-r,p2[1]-9);
+        ctx.quadraticCurveTo(p2[0],p2[1]-9-r*1.5,p2[0]+r,p2[1]-9);ctx.closePath();ctx.fill();
+        ctx.strokeStyle='rgba(120,98,66,0.4)';ctx.lineWidth=1;
+        for(let k=1;k<3;k++){ ctx.beginPath();
+          ctx.ellipse(p2[0],p2[1]-9-k*r*0.38,r*(1-k*0.3),r*0.22,0,3.14,6.3);ctx.stroke(); }
+        ctx.fillStyle='#8a7352';
+        ctx.beginPath();ctx.arc(p2[0],p2[1]-9-r*1.42,1.8,0,6.3);ctx.fill();
+      };
+      silo(x+0.55,y+0.5,10); silo(x+1.45,y+0.55,10); silo(x+1,y+1.45,9);
+      // דלת פריקה
+      const p=V(x+s/2,y+s);
+      ctx.fillStyle='#5d4a30'; ctx.fillRect(p[0]-4,p[1]-8,8,7);
       if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
     case 'market': {
-      diamond(x,y,s); ctx.fillStyle='#b0a284'; ctx.fill();
-      box(x+0.1,y+0.1,0.8,7,'#c4ad86','#95805f','#b09872');
-      // סככה פסים
-      ctx.save();
-      for(let i=0;i<6;i++){
-        ctx.fillStyle=i%2?'#c9503f':'#efe2c4';
-        ctx.beginPath();
-        const q0=V(x+0.15+i*0.3,y+0.15), q1=V(x+0.15+(i+1)*0.3,y+0.15), q2=V(x+0.15+(i+1)*0.3,y+s-0.15), q3=V(x+0.15+i*0.3,y+s-0.15);
-        ctx.moveTo(q0[0],q0[1]-15);ctx.lineTo(q1[0],q1[1]-15);ctx.lineTo(q2[0],q2[1]-15);ctx.lineTo(q3[0],q3[1]-15);ctx.closePath();ctx.fill();
-      }
-      ctx.restore();
+      shadow(x,y,s,14);
+      diamond(x,y,s); ctx.fillStyle='#b5a689'; ctx.fill();
+      // מחסן קטן מאחור
+      box(x+0.08,y+0.08,s*0.4,12,'#cdb68e','#9c8765','#b89f77');
+      gable(x+0.05,y+0.05,s*0.44,13,5,'#8e5a3c','#a86a45','#e6d9ba');
+      // דוכנים עם סככות פסים
+      const stall=(sx,sy,w)=>{
+        const g0=V(sx,sy), g1=V(sx+w,sy), g2=V(sx+w,sy+w), g3=V(sx,sy+w), H=13;
+        ctx.fillStyle='#7a6446';
+        for(const q of [g0,g1,g2,g3]) ctx.fillRect(q[0]-0.9,q[1]-H,1.8,H);
+        const n=4;
+        for(let i=0;i<n;i++){
+          const t0=i/n,t1=(i+1)/n;
+          const a=[g3[0]+(g2[0]-g3[0])*t0,g3[1]+(g2[1]-g3[1])*t0];
+          const b2=[g3[0]+(g2[0]-g3[0])*t1,g3[1]+(g2[1]-g3[1])*t1];
+          const c3=[g0[0]+(g1[0]-g0[0])*t1,g0[1]+(g1[1]-g0[1])*t1];
+          const d3=[g0[0]+(g1[0]-g0[0])*t0,g0[1]+(g1[1]-g0[1])*t0];
+          ctx.fillStyle=i%2?'#c1503d':'#f0e5c8';
+          ctx.beginPath();ctx.moveTo(a[0],a[1]-H-2);ctx.lineTo(b2[0],b2[1]-H-2);
+          ctx.lineTo(c3[0],c3[1]-H-4);ctx.lineTo(d3[0],d3[1]-H-4);ctx.closePath();ctx.fill();
+        }
+        // סחורה
+        ctx.fillStyle='#8a6a3c';
+        const m=V(sx+w/2,sy+w/2);
+        ctx.fillRect(m[0]-6,m[1]-6,5,4); ctx.fillRect(m[0]+1,m[1]-5,5,4);
+        ctx.fillStyle='#c98f3a';
+        ctx.beginPath();ctx.arc(m[0]-3,m[1]-8,2.2,0,6.3);ctx.arc(m[0]+4,m[1]-7,2,0,6.3);ctx.fill();
+      };
+      stall(x+0.55,y+0.12,0.42); stall(x+0.12,y+0.55,0.42); stall(x+0.58,y+0.58,0.38);
       if(b.noRoad) warn(x,y,s,'🚧'); else if(b.noStaff) warn(x,y,s,'👷');
       break;
     }
     case 'temple': {
-      box(x+0.15,y+0.15,0.7,7,'#e6dcc2','#b5aa8f','#d2c7aa');
-      const p=V(x+s/2,y+s/2);
-      // עמודים
-      ctx.fillStyle='#f2ead6';
-      for(let i=0;i<4;i++){ const q=V(x+0.25+i*0.5,y+0.25); ctx.fillRect(q[0]-2.2,q[1]-27,4.4,20); }
-      // גמלון
-      ctx.fillStyle='#efe4cb';
-      ctx.beginPath();ctx.moveTo(p[0]-26,p[1]-25);ctx.lineTo(p[0],p[1]-40);ctx.lineTo(p[0]+26,p[1]-25);ctx.closePath();ctx.fill();
-      ctx.fillStyle='#c9503f';
-      ctx.beginPath();ctx.moveTo(p[0]-26,p[1]-25);ctx.lineTo(p[0],p[1]-40);ctx.lineTo(p[0]+26,p[1]-25);ctx.closePath();
-      ctx.lineWidth=2;ctx.strokeStyle='#c9a94e';ctx.stroke();
+      shadow(x,y,s,26);
+      podium(x,y,s,7,'#e9e0c8','#b3a98d','#d4c9ac');
+      box(x+0.26,y+0.26,s-0.52,9.5+19,'#efe7d2','#bdb296','#dbd0b3'); // צלה
+      colonnade(x+0.1,y+0.1,s-0.2,9.5,19,3,4.2);
+      slab(x+0.04,y+0.04,s-0.08,28.5,4,'#f7f0dc','#c6bb9f','#e4d9bc');  // כרכוב
+      const r=gable(x,y,s,32.5,11,'#9c5138','#b8613f','#f2e8cf');
+      // עיטור בגמלון
+      const f=r.front, cx2=(f[0][0]+f[1][0]+f[2][0])/3, cy2=(f[0][1]+f[1][1]+f[2][1])/3;
+      ctx.fillStyle='#c9a94e';
+      ctx.beginPath();ctx.arc(cx2,cy2,3.6,0,6.3);ctx.fill();
       if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
     case 'theatre': {
-      const p=V(x+s/2,y+s/2);
-      box(x+0.1,y+0.1,0.8,9,'#ded3b8','#a89c81','#cabfa2');
-      ctx.fillStyle='#c2b494';
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-11,26,13,0,3.14,6.28);ctx.fill();
-      ctx.strokeStyle='#efe4cb';ctx.lineWidth=2;
-      for(let i=1;i<4;i++){ ctx.beginPath();ctx.ellipse(p[0],p[1]-11,26-i*6,13-i*3,0,3.14,6.28);ctx.stroke(); }
-      ctx.fillStyle='#8f4a33';ctx.fillRect(p[0]-9,p[1]-13,18,4);
+      shadow(x,y,s,16);
+      const p=V(x+s/2,y+s/2), rx=s*HW*0.94, ry=s*HH*0.94;
+      // קיר חיצוני
+      ctx.fillStyle='#c4b797';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-9,rx,ry,0,0,6.3);ctx.fill();
+      ctx.fillStyle='#ded3b6';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-14,rx,ry,0,0,6.3);ctx.fill();
+      // מדרגות הישיבה
+      for(let k=1;k<=4;k++){
+        const f=1-k*0.19;
+        ctx.fillStyle=k%2?'#cdc0a1':'#d9cdb0';
+        ctx.beginPath();ctx.ellipse(p[0],p[1]-14+k*1.2,rx*f,ry*f,0,0,6.3);ctx.fill();
+      }
+      // אורקסטרה ובמה
+      ctx.fillStyle='#a89a7a';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-9,rx*0.24,ry*0.24,0,0,6.3);ctx.fill();
+      ctx.fillStyle='#8f4a33'; ctx.fillRect(p[0]-rx*0.42,p[1]-24,rx*0.84,7);
+      ctx.fillStyle='#efe4cb';
+      for(let k=0;k<4;k++) ctx.fillRect(p[0]-rx*0.36+k*rx*0.24,p[1]-24,2.4,7);
+      ctx.fillStyle='#c9a94e'; ctx.fillRect(p[0]-rx*0.42,p[1]-26,rx*0.84,2.4);
       if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
     case 'baths': {
-      box(x+0.08,y+0.08,0.84,11,'#e0d3b4','#a89a7c','#cbbd9c');
+      shadow(x,y,s,18);
+      podium(x,y,s,5,'#ded2b2','#a89a7c','#cbbd9c');
       const p=V(x+s/2,y+s/2);
-      ctx.fillStyle=b.water?'#59b3d9':'#7d7466';
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-14,15,8,0,0,6.3);ctx.fill();
-      ctx.strokeStyle='#efe4cb';ctx.lineWidth=2.5;ctx.stroke();
+      // בריכה פתוחה
+      ctx.fillStyle='#b9ab8b';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-7,s*HW*0.5,s*HH*0.5,0,0,6.3);ctx.fill();
+      ctx.fillStyle=b.water?'#4aa6d4':'#6f675a';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-8,s*HW*0.4,s*HH*0.4,0,0,6.3);ctx.fill();
+      if(b.water){ ctx.strokeStyle='rgba(230,246,252,0.5)';ctx.lineWidth=1.4;
+        ctx.beginPath();ctx.ellipse(p[0],p[1]-8,s*HW*0.28,s*HH*0.28,0,0,6.3);ctx.stroke(); }
+      // אגף מקורה מאחור
+      box(x+0.08,y+0.08,s*0.42,16,'#e7dcbe','#ada084','#d0c4a5');
+      gable(x+0.05,y+0.05,s*0.46,17,6,'#8e5a3c','#a86a45','#efe4cb');
+      colonnade(x+0.06,y+0.06,s-0.12,5,12,2,3.4);
       if(b.noWater) warn(x,y,s,'💧'); else if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
@@ -973,13 +1347,17 @@ function drawB(b){
       break;
     }
     case 'forum': {
-      box(x+0.08,y+0.08,0.84,13,'#efe4cb','#b7ac91','#dbd0b4');
+      shadow(x,y,s,30);
+      podium(x,y,s,9,'#f0e7d0','#b9ae92','#dcd1b4');
+      box(x+0.24,y+0.24,s-0.48,11.5+21,'#f4ecd6','#c1b69a','#e0d5b8');
+      colonnade(x+0.08,y+0.08,s-0.16,11.5,21,3,4.6);
+      slab(x+0.03,y+0.03,s-0.06,32.5,4.5,'#faf3e0','#cabfa3','#e8ddc0');
+      gable(x,y,s,37,12,'#b9922f','#d4ad3d','#f6efd8');
+      // נס עם דגל
       const p=V(x+s/2,y+s/2);
-      ctx.fillStyle='#f6efdc';
-      for(let i=0;i<3;i++){ const q=V(x+0.35+i*0.65,y+0.3); ctx.fillRect(q[0]-2.5,q[1]-32,5,20); }
-      ctx.fillStyle='#c9a94e';
-      ctx.beginPath();ctx.moveTo(p[0]-24,p[1]-30);ctx.lineTo(p[0],p[1]-43);ctx.lineTo(p[0]+24,p[1]-30);ctx.closePath();ctx.fill();
-      ctx.fillStyle='#efe4cb';ctx.fillRect(p[0]-24,p[1]-30,48,4);
+      ctx.fillStyle='#8a7a58'; ctx.fillRect(p[0]-0.8,p[1]-64,1.6,16);
+      ctx.fillStyle='#b03c2c';
+      ctx.beginPath();ctx.moveTo(p[0]+0.8,p[1]-64);ctx.lineTo(p[0]+11,p[1]-61);ctx.lineTo(p[0]+0.8,p[1]-56);ctx.closePath();ctx.fill();
       if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
@@ -1027,7 +1405,7 @@ cv.addEventListener('pointerdown',e=>{
       mx:(p[0].x+p[1].x)/2,my:(p[0].y+p[1].y)/2,cx:cam.x,cy:cam.y};
     dragTiles=null; ghost=null; panning=true;
   } else if(ptrs.size===1){
-    if(tool && B[tool].drag){ dragTiles=[]; addDrag(e.clientX,e.clientY); panning=false; }
+    if(tool||dozing){ dragTiles=[]; addDrag(e.clientX,e.clientY); panning=false; }
     else panning=true;
   }
 });
@@ -1056,6 +1434,14 @@ function endPtr(e){
   if(!p) return;
   if(dragTiles){
     const list=dragTiles.slice(); dragTiles=null; ghost=null;
+    if(dozing){ let n=0;
+      for(const[x,y]of list){
+        if(S.rubble[idx(x,y)]){ S.rubble[idx(x,y)]=0; n++; continue; }
+        const b=bAt(x,y); if(b){ remove(b,true); n++; }
+      }
+      if(n) toast(n>1?n+' מבנים נהרסו':'נהרס');
+      dirty=true; updateUI(); return;
+    }
     let n=0;
     for(const[x,y]of list) if(place(tool,x,y,list.length>1)) n++;
     if(n===0&&list.length===1) place(tool,list[0][0],list[0][1],false);
@@ -1072,6 +1458,8 @@ cv.addEventListener('pointercancel',endPtr);
 function addDrag(sx,sy){
   const[x,y]=s2t(sx,sy);
   if(!inb(x,y)) return;
+  const canLine = dozing || (tool && B[tool].drag);
+  if(!canLine){ dragTiles=[[x,y]]; ghost=dragTiles; dirty=true; return; }
   if(!dragTiles.some(t=>t[0]===x&&t[1]===y)){
     // קו ישר: אחרי 2 אריחים ננעלים על ציר
     dragTiles.push([x,y]);
@@ -1087,16 +1475,10 @@ function addDrag(sx,sy){
   ghost=dragTiles; dirty=true;
 }
 
+// הקשה ללא כלי נבחר — פתיחת חלון מידע על המבנה
 function tap(sx,sy){
   const[x,y]=s2t(sx,sy);
   if(!inb(x,y)) return;
-  if(dozing){
-    if(S.rubble[idx(x,y)]){ S.rubble[idx(x,y)]=0; dirty=true; return; }
-    const b=bAt(x,y);
-    if(b){ remove(b,true); toast('נהרס'); updateUI(); }
-    return;
-  }
-  if(tool){ place(tool,x,y,false); updateUI(); dirty=true; return; }
   const b=bAt(x,y);
   sel=b||null; showPanel(b); dirty=true;
 }
@@ -1153,7 +1535,13 @@ function buildSheet(){
       $('bDoze').classList.remove('on');
       $('bBuild').classList.toggle('on',!!tool);
       buildSheet();
-      if(tool) toast(d.n+' — '+(d.drag?'הקש או גרור למיקום':'הקש למיקום'));
+      if(tool){
+        openSheet(false);   // סוגר את התפריט כדי שהמפה תהיה גלויה בזמן הבנייה
+        toast(d.n+' — '+(d.drag?'החזק וגרור על המפה':'החזק על המפה ושחרר'));
+        $('curTool').innerHTML='<span class="ic">'+d.em+'</span>'+d.n+
+          ' <b>'+d.cost+' ₪</b><span class="xx">✕</span>';
+        $('curTool').classList.add('on');
+      } else $('curTool').classList.remove('on');
       dirty=true;
     };
     it.appendChild(e);
@@ -1163,15 +1551,26 @@ function openSheet(o){ $('sheet').classList.toggle('open',o); if(o) buildSheet()
 
 $('bBuild').onclick=()=>{
   const open=$('sheet').classList.contains('open');
-  if(open&&tool){ tool=null; $('bBuild').classList.remove('on'); buildSheet(); dirty=true; return; }
+  if(!open){ dozing=false; $('bDoze').classList.remove('on'); }
   openSheet(!open);
 };
 $('bDoze').onclick=()=>{
   dozing=!dozing; tool=null; sel=null; hidePanel(); openSheet(false);
   $('bDoze').classList.toggle('on',dozing);
   $('bBuild').classList.remove('on');
-  if(dozing) toast('מצב הריסה — הקש על מבנה');
+  if(dozing){
+    toast('מצב הריסה — החזק וגרור על המפה');
+    $('curTool').innerHTML='<span class="ic">⛏️</span>מצב הריסה<span class="xx">✕</span>';
+    $('curTool').classList.add('on');
+  } else $('curTool').classList.remove('on');
   dirty=true;
+};
+// הקשה על שבב הכלי הפעיל מבטלת אותו
+$('curTool').onclick=()=>{
+  tool=null; dozing=false;
+  $('curTool').classList.remove('on');
+  $('bDoze').classList.remove('on'); $('bBuild').classList.remove('on');
+  buildSheet(); dirty=true;
 };
 const SPD=[['עצור',0],['רגיל',1],['מהיר',2],['מהיר מאוד',4]];
 $('bSpeed').onclick=()=>{
@@ -1305,7 +1704,107 @@ function boot(){
   $('taxSlider').value=S.tax; $('taxVal').textContent=S.tax+'%';
   $('spdLbl').textContent=SPD[S.speed][0];
   resize(); computeWater(); assignWorkers(); computeCoverage(); updateUI();
+  // מצבי תצוגה לפיתוח הגרפיקה בלבד (?demo=1 גלריית מבנים, ?demo=2 עיר, &fast=1 מאכלס הולכי רגל)
+  if(location.search.indexOf('demo')>=0){
+    $('mIntro').classList.remove('show');
+    if(location.search.indexOf('demo=2')>=0) demoTown(); else demoCity();
+    if(location.search.indexOf('fast')>=0) for(let k=0;k<400;k++) updateWalkers(0.06);
+  }
   requestAnimationFrame(loop);
+}
+
+// גלריית מבנים לפיתוח הגרפיקה: ?demo=1
+let demoLabels=null;
+function demoCity(){
+  S=newState(1);
+  S.money=1e9;
+  // שטח שטוח ונקי
+  for(let x=2;x<GRID-2;x++)for(let y=2;y<GRID-2;y++) S.terr[idx(x,y)]=T_GRASS;
+  for(let x=8;x<20;x++)for(let y=8;y<20;y++) S.terr[idx(x,y)]=T_FERT;
+  demoLabels=[];
+  const P=(t,x,y)=>{ const ok=place(t,x,y,true); if(ok) demoLabels.push([x,y,B[t].n]); return ok; };
+  // רחוב ראשי עם בתים בכל הדרגות
+  const y0=8;
+  for(let x=6;x<=26;x++) place('road',x,y0,true);
+  for(let lv=0;lv<7;lv++){
+    const x=7+lv*2;
+    if(place('house',x,y0-1,true)){ const b=bAt(x,y0-1); b.level=lv; b.people=HOUSE[lv].cap;
+      demoLabels.push([x,y0-1,'דרגה '+lv]); }
+    place('garden',x+1,y0-1,true);
+  }
+  // שורת מבנים ציבוריים
+  const row=(y,list)=>{ let x=6; for(const t of list){ P(t,x,y); x+=B[t].s+1; } };
+  for(let x=4;x<=30;x++){ place('road',x,y0+4,true); place('road',x,y0+9,true); place('road',x,y0+14,true); }
+  row(y0+5,['temple','theatre','forum','market']);
+  row(y0+10,['granary','baths','doctor','prefect','engineer','well']);
+  row(y0+15,['wheat','veg','fruit','statue','obelisk','plaza']);
+  // שרשרת מים
+  for(let x=4;x<=8;x++) S.terr[idx(x,26)]=T_WATER;
+  P('reservoir',6,27); for(let k=0;k<4;k++) place('aqueduct',6,29+k,true);
+  P('fountain',7,32);
+  // עצים סביב
+  for(let k=0;k<40;k++){ const x=3+((noise(k,1,7)*36)|0), y=3+((noise(k,2,7)*36)|0);
+    if(!S.occ[idx(x,y)]&&S.terr[idx(x,y)]===T_GRASS&&(x>30||y>34)) S.terr[idx(x,y)]=T_TREE; }
+  S.pop=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home) S.pop+=b.people; }
+  computeWater(); assignWorkers();
+  for(const id in S.bl) S.bl[id].staff=1;
+  computeCoverage();
+  const mz=/z=([\d.]+)/.exec(location.search), mr=/row=(\d+)/.exec(location.search);
+  cam.z=mz?+mz[1]:1.0;
+  const focus=mr?+mr[1]:0;
+  const fy=[y0-1,y0+5,y0+10,y0+15,30][focus]||y0;
+  const fx=[12,10,12,12,7][focus]||12;
+  const c2=V(fx,fy); cam.x=c2[0]; cam.y=c2[1];
+  updateUI(); dirty=true;
+}
+// עיר לדוגמה להערכת התמונה הכוללת: ?demo=2
+function demoTown(){
+  S=newState(5); S.money=1e9; demoLabels=null;
+  const c=22;
+  for(let x=4;x<GRID-4;x++)for(let y=4;y<GRID-4;y++)
+    if(S.terr[idx(x,y)]===T_ROCK||S.terr[idx(x,y)]===T_TREE) S.terr[idx(x,y)]=T_GRASS;
+  const P=(t,x,y)=>place(t,x,y,true);
+  for(let y=c-9;y<=c+9;y+=4) for(let x=c-11;x<=c+11;x++) P('road',x,y);
+  for(let x=c-8;x<=c+8;x+=4) for(let y=c-9;y<=c+9;y++) P('road',x,y);
+  const lv=[4,3,5,2,3,4,2,5,3,4,3,2,4,5,3,2];let k=0;
+  for(let x=c-11;x<=c+11;x++)for(let y=c-9;y<=c+9;y++){
+    if(S.occ[idx(x,y)]) continue;
+    let nearRoad=false;
+    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const b=bAt(x+dx,y+dy);if(b&&b.t==='road')nearRoad=true;}
+    if(!nearRoad||Math.random()<0.22) continue;
+    if(P('house',x,y)){ const b=bAt(x,y); b.level=lv[k++%lv.length]; b.people=HOUSE[b.level].cap; }
+  }
+  const put=(t,n)=>{let d=0;
+    for(let r=1;r<13&&d<n;r++)for(let x=c-r;x<=c+r&&d<n;x++)for(let y=c-r;y<=c+r&&d<n;y++){
+      if(Math.max(Math.abs(x-c),Math.abs(y-c))!==r)continue;
+      let nr=false; for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const b=bAt(x+dx,y+dy);if(b&&b.t==='road')nr=true;}
+      if(!nr)continue;
+      const b=bAt(x,y); if(b&&B[b.t].home) remove(b,false);
+      if(P(t,x,y))d++;}
+    return d;};
+  put('temple',2); put('forum',1); put('theatre',1); put('market',3); put('granary',2);
+  put('prefect',3); put('engineer',2); put('doctor',2); put('baths',1);
+  put('well',5); put('garden',10); put('statue',4); put('plaza',6); put('obelisk',1);
+  for(let x=4;x<GRID-4;x++)for(let y=4;y<GRID-4;y++)
+    if(S.terr[idx(x,y)]===T_FERT&&!S.occ[idx(x,y)]&&Math.random()<0.3) P('wheat',x,y);
+  S.pop=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home) S.pop+=b.people; }
+  computeWater(); assignWorkers();
+  for(const id in S.bl) S.bl[id].staff=1;
+  computeCoverage();
+  const mz=/z=([\d.]+)/.exec(location.search);
+  cam.z=mz?+mz[1]:0.95; centerCam(); cam.z=mz?+mz[1]:0.95;
+  updateUI(); dirty=true;
+}
+function drawDemoLabels(){
+  if(!demoLabels) return;
+  ctx.font='600 9px -apple-system,sans-serif'; ctx.textAlign='center';
+  for(const[x,y,n]of demoLabels){
+    const p=V(x+0.5,y+0.5);
+    ctx.fillStyle='rgba(0,0,0,0.62)';
+    const w=ctx.measureText(n).width+8;
+    ctx.fillRect(p[0]-w/2,p[1]+4,w,12);
+    ctx.fillStyle='#ffe9a8'; ctx.fillText(n,p[0],p[1]+13);
+  }
 }
 
 let acc=0, last=performance.now();
@@ -1315,6 +1814,7 @@ function loop(t){
   if(S.speed>0){
     acc+=dt*SPD[S.speed][1];
     while(acc>=MONTH_MS){ acc-=MONTH_MS; monthTick(); }
+    updateWalkers(Math.min(0.2,dt/1000)*SPD[S.speed][1]);
   }
   if(dirty||S.speed>0) draw();
   requestAnimationFrame(loop);
