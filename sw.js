@@ -1,4 +1,4 @@
-﻿var CACHE_NAME = "caesar-city-v3";
+﻿var CACHE_NAME = "caesar-city-v4";
 var ASSETS = [
   "./",
   "./index.html",

@@ -373,9 +373,11 @@ function place(t,x,y,quiet){
   dirty=true; return true;
 }
 function remove(b,refund){
+  if(S.bl[b.id]!==b) return;   // כבר הוסר (למשל נשרף) — אל תאפס אריחים של מבנה חדש שנבנה במקומו
   for(const[X,Y]of tiles(b)) S.occ[idx(X,Y)]=0;
   delete S.bl[b.id];
   if(refund) S.money+=Math.floor(B[b.t].cost*0.2);
+  if(sel===b){ sel=null; hidePanel(); }
   dirty=true;
 }
 function destroy(b,rub){
@@ -387,6 +389,7 @@ function destroy(b,rub){
 const cov={}; // כיסוי שירותים
 ['food','relig','fun','baths','doc','fire','eng','tax','water1','water2'].forEach(k=>cov[k]=new Uint8Array(GRID*GRID));
 const desG=new Int16Array(GRID*GRID);
+const previewCov=new Uint8Array(GRID*GRID);   // כיסוי משוער בזמן הנחת מבנה
 
 function hasRoad(b){
   for(const[X,Y]of ring(b.x,b.y,b.s)){ const n=bAt(X,Y); if(n&&n.t==='road') return true; }
@@ -744,6 +747,9 @@ function updateWalkers(dt){
     w.t+=dt*w.sp; w.life-=dt;
     while(w.t>=1){ w.t-=1; w.i++; }
     if(w.i>=w.p.length-1||w.life<=0){ walkers.splice(i,1); continue; }
+    // הכביש נהרס מתחת לרגליו — אל תשאיר אותו צועד על הדשא
+    const n=w.p[w.i+1];
+    if(!isRoadT(n[0],n[1])) walkers.splice(i,1);
   }
 }
 let walkerTimer=0;
@@ -1015,6 +1021,29 @@ function draw(){
   list.sort((a,b)=>(a.x+a.y)-(b.x+b.y));
   for(const b of list) drawB(b);
   drawWalkers(minX,maxX,minY,maxY);
+
+  // טווח השירות של המבנה שעומדים להניח — עונה על "למה הבית הזה לא מקבל מים?"
+  if(ghost && ghost.length===1 && !dozing && (B[tool].rad||B[tool].walk)){
+    const d0=B[tool], gx=ghost[0][0], gy=ghost[0][1];
+    previewCov.fill(0);
+    if(d0.rad) radFill(previewCov,gx,gy,d0.s,d0.rad);
+    else walkFill(previewCov,{x:gx,y:gy,s:d0.s},d0.walk);
+    let served=0;
+    ctx.fillStyle=d0.rad?'rgba(90,190,235,0.22)':'rgba(120,210,140,0.2)';
+    for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
+      if(!previewCov[idx(x,y)]) continue;
+      diamond(x,y,1); ctx.fill();
+      const hb=bAt(x,y); if(hb&&B[hb.t].home&&hb.x===x&&hb.y===y) served++;
+    }
+    if(served){
+      const q=V(gx+0.5,gy+1.6);
+      ctx.font='700 11px -apple-system,sans-serif'; ctx.textAlign='center';
+      ctx.fillStyle='rgba(28,22,14,0.85)';
+      const tx='משרת '+served+' בתים', tw=ctx.measureText(tx).width+14;
+      ctx.fillRect(q[0]-tw/2,q[1],tw,17);
+      ctx.fillStyle='#bfe9c6'; ctx.fillText(tx,q[0],q[1]+12);
+    }
+  }
 
   // תצוגה מקדימה של הבנייה/ההריסה מתחת לאצבע
   if(ghost && ghost.length){
@@ -1888,6 +1917,8 @@ function boot(){
     $('mIntro').classList.remove('show');
     if(location.search.indexOf('demo=2')>=0) demoTown(); else demoCity();
     if(location.search.indexOf('fast')>=0) for(let k=0;k<400;k++) updateWalkers(0.06);
+    const mg=/ghost=(\w+)&?g?=?(\d+)?,?(\d+)?/.exec(location.search);
+    if(mg&&B[mg[1]]){ tool=mg[1]; ghost=dragTiles=[[+(mg[2]||22),+(mg[3]||22)]]; }
   }
   requestAnimationFrame(loop);
 }
