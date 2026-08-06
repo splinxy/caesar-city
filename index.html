@@ -114,6 +114,30 @@
   .card ul{margin:4px 0;padding-inline-start:20px}
   .card .btn{height:48px;flex-direction:row;font-size:15px;margin-top:14px;width:100%}
   .sub{text-align:center;font-size:12px;opacity:.6;margin-bottom:10px}
+  /* ---------- title screen ---------- */
+  .title-card{text-align:center;background:linear-gradient(#40311f,#221a12)}
+  .title-card .crest{font-size:54px;line-height:1;margin-bottom:2px}
+  .title-card h1{font-size:40px;letter-spacing:6px;margin:0;
+    text-shadow:0 2px 0 #6b5220,0 4px 12px #0008}
+  .title-card .sub{font-size:14px;letter-spacing:3px;opacity:.75;margin-bottom:22px}
+  .btn.big{height:54px;flex-direction:row;font-size:16px;gap:9px;margin-top:9px;width:100%}
+  .btn.big b{font-size:11px;font-weight:500;opacity:.7}
+  .btn.dim{opacity:.4}
+  .fld{display:block;font-size:13px;opacity:.9;margin:14px 0 4px}
+  .fld input[type=text]{display:block;width:100%;margin-top:6px;background:#00000038;color:var(--parch);
+    border:1px solid #ffffff26;border-radius:10px;padding:11px 12px;font-size:16px;font-family:inherit}
+  .maprow{display:flex;gap:12px;align-items:center;margin-top:8px}
+  #mapPrev{border-radius:10px;border:1px solid #ffffff22;background:#1b1410;flex:none;width:150px;height:150px}
+  /* ---------- save slots ---------- */
+  .slot{display:flex;align-items:center;gap:10px;background:#ffffff0e;border:1px solid #ffffff1c;
+    border-radius:12px;padding:11px 13px;margin-bottom:9px;min-height:64px}
+  .slot .si{flex:1;min-width:0}
+  .slot .sn{font-size:14.5px;font-weight:700}
+  .slot .sd{font-size:11.5px;opacity:.65;margin-top:3px;line-height:1.5}
+  .slot .sa{background:linear-gradient(#c9a94e,#a5842f);color:#231a0e;border-radius:9px;
+    padding:9px 13px;font-size:13px;font-weight:700;flex:none}
+  .slot .sx{background:#ffffff14;border-radius:9px;padding:9px 11px;font-size:13px;flex:none}
+  .slot.empty .sn{opacity:.5;font-weight:500}
   .taxrow{display:flex;align-items:center;gap:10px;margin:8px 0}
   .taxrow input{flex:1;accent-color:var(--gold)}
 </style>
@@ -150,6 +174,40 @@
 <div id="panel"></div>
 <div id="toast"></div>
 
+<div class="modal show" id="mTitle"><div class="card title-card">
+  <div class="crest">🏛️</div>
+  <h1>קיסר</h1>
+  <div class="sub">בונה הערים</div>
+  <div class="btn big" id="tContinue">▶︎ המשך משחק<b id="tContInfo"></b></div>
+  <div class="btn big" id="tNew">✦ משחק חדש</div>
+  <div class="btn big" id="tLoad">📁 טען משחק שמור</div>
+  <div class="btn big" id="tHelp">📜 איך משחקים</div>
+</div></div>
+
+<div class="modal" id="mNew"><div class="card">
+  <h1>עיר חדשה</h1>
+  <div class="sub">בחר שם ומפה, והתחל לבנות מאפס</div>
+  <label class="fld">שם העיר
+    <input id="newName" type="text" maxlength="18" value="רומא החדשה" dir="rtl"></label>
+  <div class="fld">המפה
+    <div class="maprow">
+      <canvas id="mapPrev" width="150" height="150"></canvas>
+      <div>
+        <div style="font-size:12.5px;opacity:.8;line-height:1.7" id="mapDesc"></div>
+        <div class="btn" id="reroll" style="height:42px;flex-direction:row;font-size:13px;margin-top:8px">🎲 מפה אחרת</div>
+      </div>
+    </div>
+  </div>
+  <div class="btn big" id="startGame">התחל לבנות</div>
+  <div class="btn" id="newBack" style="height:42px;flex-direction:row;font-size:13px">חזרה</div>
+</div></div>
+
+<div class="modal" id="mSlots"><div class="card">
+  <h1 id="slotsTitle">משחקים שמורים</h1>
+  <div id="slotList"></div>
+  <div class="btn" id="slotsBack" style="height:44px;flex-direction:row;font-size:14px">חזרה</div>
+</div></div>
+
 <div class="modal" id="mIntro"><div class="card">
   <h1>קיסר — בונה הערים</h1>
   <div class="sub">בנה עיר רומית משגשגת</div>
@@ -177,10 +235,12 @@
   <p style="font-size:12px;opacity:.7;margin-top:-2px">מס גבוה ממלא את האוצר אבל מוריד את מצב הרוח.</p>
   <h2>העיר שלך</h2>
   <div id="menuStats" style="font-size:13px;line-height:1.8"></div>
-  <div class="btn" id="bHelp">📜 הוראות המשחק</div>
   <div class="btn" id="bOverlay">🗺️ שכבת מידע: <b id="ovLbl">כבויה</b></div>
-  <div class="btn" id="bNew" style="border-color:#8a4030">🔥 עיר חדשה (מוחק הכל)</div>
-  <div class="btn" id="bClose">סגור</div>
+  <div class="btn" id="bSave">💾 שמור משחק</div>
+  <div class="btn" id="bLoad">📁 טען משחק שמור</div>
+  <div class="btn" id="bHelp">📜 הוראות המשחק</div>
+  <div class="btn" id="bTitle">🏛️ למסך הראשי</div>
+  <div class="btn" id="bClose">חזרה למשחק</div>
 </div></div>
 
 <script>
@@ -253,6 +313,7 @@ function newState(seed){
     cleared:[],
     bl:{}, nextId:1, money:6000, month:0, year:-320, tax:7,
     mood:55, food:0, pop:0, workers:0, jobs:0, employed:0, unemp:0,
+    name:'רומא החדשה',
     speed:1, income:0, expense:0, trade:0, lastFoodOK:true, foodRatio:1, rank:0, msgs:0
   };
   genMap(st);
@@ -642,7 +703,9 @@ function monthTick(){
     let target=50;
     target += S.foodRatio*9 - (1-S.foodRatio)*32;
     target += (7-S.tax)*2.2;
-    target -= Math.max(0,S.unemp-0.2)*22;
+    // כפר של מתיישבים ראשונים לא סובל מ"אבטלה" — בלי הפטור הזה עיר חדשה
+    // נתקעת על קומץ תושבים ולא מצליחה לצמוח לגודל שמצדיק בכלל מקומות עבודה
+    if(S.pop>=50) target -= Math.max(0,S.unemp-0.2)*22;
     if(S.jobs>S.workers) target -= Math.min(10,(S.jobs-S.workers)/Math.max(1,S.jobs)*20);
     if(S.money<0) target -= 12;
     let lvSum=0,hc=0;
@@ -1827,6 +1890,7 @@ function showPanel(b){
 /* --- תפריט ראשי --- */
 $('bMenu').onclick=()=>{
   $('menuStats').innerHTML=
+    'העיר: <b>'+S.name+'</b><br>'+
     'דרגת העיר: <b>'+RANKS[S.rank][1]+'</b><br>'+
     'הכנסות חודשיות: <b>'+Math.round(S.income)+' ₪</b>'+
       (S.trade?' <span style="opacity:.7">(מתוכן '+Math.round(S.trade)+' ₪ ממלאכה)</span>':'')+'<br>'+
@@ -1838,83 +1902,192 @@ $('bMenu').onclick=()=>{
 };
 $('bClose').onclick=()=>$('mMenu').classList.remove('show');
 $('bHelp').onclick=()=>{ $('mMenu').classList.remove('show'); $('mIntro').classList.add('show'); };
-$('bStart').onclick=()=>{ $('mIntro').classList.remove('show'); save(); };
+$('bSave').onclick=()=>openSlots('save');
+$('bLoad').onclick=()=>openSlots('load');
+$('bTitle').onclick=()=>{
+  if(!confirm('לחזור למסך הראשי? המשחק יישמר אוטומטית.')) return;
+  save(); openTitle();
+};
+$('bStart').onclick=()=>{
+  if(inMenu) openTitle();          // הגענו להוראות מהמסך הראשי
+  else { showModal(null); save(); toast('התחל בהנחת כביש, ואז מגרשי מגורים לצידו'); }
+};
 $('bOverlay').onclick=()=>{
   overlay=(overlay+1)%OVERLAYS.length;
   $('ovLbl').textContent=OVERLAYS[overlay]?OV_HE[OVERLAYS[overlay]]:'כבויה';
   dirty=true;
 };
-$('bNew').onclick=()=>{
-  if(!confirm('למחוק את העיר ולהתחיל מחדש?')) return;
-  localStorage.removeItem(SAVE_KEY);
-  S=newState(Math.random()*1e9|0); walkers.length=0;
-  centerCam(); computeWater(); computeCoverage();
-  $('mMenu').classList.remove('show'); updateUI(); dirty=true;
-};
 $('taxSlider').oninput=e=>{ S.tax=+e.target.value; $('taxVal').textContent=S.tax+'%'; };
 
-/* ============================ שמירה ============================ */
-function save(){
-  try{
-    const o={v:1,seed:S.seed,money:S.money,month:S.month,year:S.year,tax:S.tax,mood:S.mood,food:S.food,
-      rank:S.rank,nextId:S.nextId,speed:S.speed,cam:{x:cam.x,y:cam.y,z:cam.z},
-      cut:S.cleared,
-      rub:Array.from(S.rubble).map((v,i)=>v?i:-1).filter(i=>i>=0),
-      bl:Object.values(S.bl).map(b=>[b.id,b.t,b.x,b.y,b.people,b.level,b.hunger,b.age])};
-    localStorage.setItem(SAVE_KEY,JSON.stringify(o));
-  }catch(e){}
+/* ============================ שמירה וטעינה ============================ */
+const SLOTS=3, slotKey=n=>SAVE_KEY+'-slot'+n;
+
+function serialize(){
+  return {v:2,name:S.name,seed:S.seed,money:S.money,month:S.month,year:S.year,tax:S.tax,
+    mood:S.mood,food:S.food,rank:S.rank,nextId:S.nextId,speed:S.speed,pop:S.pop,
+    at:Date.now(),cam:{x:cam.x,y:cam.y,z:cam.z},cut:S.cleared,
+    rub:Array.from(S.rubble).map((v,i)=>v?i:-1).filter(i=>i>=0),
+    bl:Object.values(S.bl).map(b=>[b.id,b.t,b.x,b.y,b.people,b.level,b.hunger,b.age])};
 }
-function load(){
-  try{
-    const o=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
-    if(!o||!o.seed&&o.seed!==0) return false;
-    S=newState(o.seed);
-    S.money=o.money;S.month=o.month;S.year=o.year;S.tax=o.tax;S.mood=o.mood;S.food=o.food;
-    S.rank=o.rank||0;S.nextId=o.nextId||1;S.speed=o.speed==null?1:o.speed;
-    for(const i of (o.rub||[])) S.rubble[i]=1;
-    // עצים שנכרתו — המפה נוצרת מחדש מהזרע, לכן צריך להחיל את השינויים
-    S.cleared=o.cut||[];
-    for(const i of S.cleared) if(S.terr[i]===T_TREE) S.terr[i]=T_GRASS;
-    for(const a of o.bl){
-      const d=B[a[1]]; if(!d) continue;
-      const b={id:a[0],t:a[1],x:a[2],y:a[3],s:d.s,people:a[4],level:a[5],staff:0,hunger:a[6]||0,age:a[7]||0,
-        water:false,des:0,prod:0};
-      S.bl[b.id]=b;
-      for(const[X,Y]of tiles(b)) S.occ[idx(X,Y)]=b.id;
-    }
-    S.pop=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home) S.pop+=b.people; }
-    if(o.cam){cam.x=o.cam.x;cam.y=o.cam.y;cam.z=o.cam.z}
-    return true;
-  }catch(e){ return false; }
+function applySave(o){
+  S=newState(o.seed); walkers.length=0;
+  S.name=o.name||'העיר שלי';
+  S.money=o.money;S.month=o.month;S.year=o.year;S.tax=o.tax;S.mood=o.mood;S.food=o.food;
+  S.rank=o.rank||0;S.nextId=o.nextId||1;S.speed=o.speed==null?1:o.speed;
+  for(const i of (o.rub||[])) S.rubble[i]=1;
+  // עצים שנכרתו — המפה נוצרת מחדש מהזרע, לכן צריך להחיל את השינויים
+  S.cleared=o.cut||[];
+  for(const i of S.cleared) if(S.terr[i]===T_TREE) S.terr[i]=T_GRASS;
+  for(const a of (o.bl||[])){
+    const d=B[a[1]]; if(!d) continue;
+    const b={id:a[0],t:a[1],x:a[2],y:a[3],s:d.s,people:a[4],level:a[5],staff:0,hunger:a[6]||0,age:a[7]||0,
+      water:false,des:0,prod:0};
+    S.bl[b.id]=b;
+    for(const[X,Y]of tiles(b)) S.occ[idx(X,Y)]=b.id;
+  }
+  S.pop=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home) S.pop+=b.people; }
+  if(o.cam){cam.x=o.cam.x;cam.y=o.cam.y;cam.z=o.cam.z} else centerCam();
+  computeWater(); assignWorkers(); computeCoverage();
+  updateUI(); dirty=true;
+}
+function readSlot(key){
+  try{ const o=JSON.parse(localStorage.getItem(key)||'null');
+    return (o&&(o.seed||o.seed===0))?o:null; }catch(e){ return null; }
+}
+function writeSlot(key){
+  try{ localStorage.setItem(key,JSON.stringify(serialize())); return true; }
+  catch(e){ toast('אין מקום לשמירה בזיכרון המכשיר'); return false; }
+}
+// שמירה אוטומטית — היא ה"המשך משחק" של המסך הראשי
+function save(){ if(S&&!inMenu) writeSlot(SAVE_KEY); }
+function load(){ const o=readSlot(SAVE_KEY); if(!o) return false; applySave(o); return true; }
+
+function slotLabel(o){
+  if(!o) return null;
+  const d=new Date(o.at||Date.now());
+  const rank=RANKS[o.rank||0][1];
+  return {name:o.name||'עיר ללא שם',
+    desc:rank+' • '+(o.pop||0).toLocaleString('he-IL')+' תושבים • '+
+      MONTHS[o.month||0].slice(0,3)+' '+Math.abs(o.year||0)+' לפנה"ס'+
+      '<br>נשמר: '+d.toLocaleDateString('he-IL')+' '+d.toTimeString().slice(0,5)};
 }
 setInterval(save,10000);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) save(); });
 window.addEventListener('pagehide',save);
+
+/* ============================ מסך פתיחה, משחק חדש וסלוטים ============================ */
+let inMenu=true, newSeed=0;
+
+function showModal(id){
+  ['mTitle','mNew','mSlots','mIntro','mMenu'].forEach(m=>$(m).classList.toggle('show',m===id));
+}
+function openTitle(){
+  inMenu=true; S.speed=0;
+  const cont=readSlot(SAVE_KEY), lbl=slotLabel(cont);
+  $('tContinue').classList.toggle('dim',!cont);
+  $('tContInfo').textContent=lbl?'— '+lbl.name:'— אין משחק פעיל';
+  showModal('mTitle');
+}
+// תצוגה מוקטנת של המפה שתוגרל, כדי לבחור נוף לפני שמתחילים
+function drawMapPreview(seed){
+  const c=$('mapPrev'), g=c.getContext('2d'), n=GRID, px=c.width/n;
+  const tmp={seed:seed>>>0,terr:new Uint8Array(n*n),tint:new Uint8Array(n*n),deco:new Uint8Array(n*n)};
+  genMap(tmp);
+  const col=['#587239','#2b6b8c','#7b8a48','#3e5a2c','#6d685c'];
+  let water=0, fert=0, tree=0;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+    const t=tmp.terr[y*n+x];
+    if(t===T_WATER)water++; else if(t===T_FERT)fert++; else if(t===T_TREE)tree++;
+    g.fillStyle=col[t]; g.fillRect(x*px,y*px,px+0.5,px+0.5);
+  }
+  g.strokeStyle='#ffe9a880'; g.lineWidth=1;
+  g.strokeRect(n/2*px-9,n/2*px-9,18,18);
+  $('mapDesc').innerHTML='אדמה פורייה: <b>'+Math.round(fert/(n*n)*100)+'%</b><br>'+
+    'נהר: <b>'+(water>190?'רחב':water>120?'בינוני':'צר')+'</b><br>'+
+    'חורשות: <b>'+(tree>190?'צפופות':tree>110?'בינוניות':'דלילות')+'</b>';
+  return tmp;
+}
+function openNew(){
+  inMenu=true; newSeed=(Math.random()*1e9)|0;
+  drawMapPreview(newSeed); showModal('mNew');
+}
+function startNew(){
+  S=newState(newSeed); walkers.length=0;
+  S.name=($('newName').value||'').trim().slice(0,18)||'רומא החדשה';
+  S.money=8000; S.pop=0; S.speed=1;
+  centerCam();
+  localStorage.removeItem(SAVE_KEY);
+  inMenu=false;
+  $('taxSlider').value=S.tax; $('taxVal').textContent=S.tax+'%';
+  $('spdLbl').textContent=SPD[S.speed][0];
+  computeWater(); assignWorkers(); computeCoverage(); updateUI(); dirty=true;
+  showModal('mIntro');
+}
+// רשימת סלוטים — משמשת גם לשמירה וגם לטעינה
+let slotMode='load';
+function openSlots(mode){
+  slotMode=mode;
+  $('slotsTitle').textContent=mode==='save'?'שמירת המשחק':'טעינת משחק';
+  const list=$('slotList'); list.innerHTML='';
+  for(let i=1;i<=SLOTS;i++){
+    const o=readSlot(slotKey(i)), lbl=slotLabel(o);
+    const row=document.createElement('div');
+    row.className='slot'+(o?'':' empty');
+    row.innerHTML='<div class="si"><div class="sn">'+(lbl?lbl.name:'משבצת '+i+' — ריקה')+'</div>'+
+      (lbl?'<div class="sd">'+lbl.desc+'</div>':'')+'</div>'+
+      '<div class="sa">'+(mode==='save'?(o?'החלף':'שמור'):'טען')+'</div>'+
+      (o?'<div class="sx">🗑️</div>':'');
+    row.querySelector('.sa').onclick=()=>{
+      if(mode==='save'){
+        if(o&&!confirm('להחליף את "'+lbl.name+'"?')) return;
+        if(writeSlot(slotKey(i))) toast('המשחק נשמר במשבצת '+i);
+        $('mSlots').classList.remove('show');
+        if(!inMenu) $('mMenu').classList.add('show');
+      } else {
+        if(!o) return;
+        applySave(o); inMenu=false; S.speed=1;
+        $('taxSlider').value=S.tax; $('taxVal').textContent=S.tax+'%';
+        $('spdLbl').textContent=SPD[S.speed][0];
+        showModal(null); toast('נטען: '+lbl.name);
+      }
+    };
+    const del=row.querySelector('.sx');
+    if(del) del.onclick=()=>{ if(confirm('למחוק את "'+lbl.name+'"?')){
+      localStorage.removeItem(slotKey(i)); openSlots(mode); } };
+    list.appendChild(row);
+  }
+  showModal('mSlots');
+}
+$('tContinue').onclick=()=>{
+  const o=readSlot(SAVE_KEY);
+  if(!o){ toast('אין משחק פעיל — התחל משחק חדש'); return; }
+  applySave(o); inMenu=false; if(!S.speed) S.speed=1;
+  $('taxSlider').value=S.tax; $('taxVal').textContent=S.tax+'%';
+  $('spdLbl').textContent=SPD[S.speed][0];
+  showModal(null);
+};
+$('tNew').onclick=openNew;
+$('tLoad').onclick=()=>openSlots('load');
+$('tHelp').onclick=()=>showModal('mIntro');
+$('reroll').onclick=()=>{ newSeed=(Math.random()*1e9)|0; drawMapPreview(newSeed); };
+$('startGame').onclick=startNew;
+$('newBack').onclick=openTitle;
+$('slotsBack').onclick=()=>{ if(inMenu) openTitle(); else { $('mSlots').classList.remove('show'); $('mMenu').classList.add('show'); } };
 
 /* ============================ הפעלה ============================ */
 function centerCam(){
   const c=V(GRID/2,GRID/2); cam.x=c[0]; cam.y=c[1]; cam.z=1;
 }
 function boot(){
-  const had=load();
-  if(!had){
-    S=newState((Math.random()*1e9)|0);
-    centerCam();
-    // התחלה: קטע כביש ושני מגרשים
-    const c=(GRID/2)|0;
-    for(let i=-3;i<=3;i++) place('road',c+i,c,true);
-    place('house',c-1,c-1,true); place('house',c,c-1,true); place('house',c+1,c-1,true);
-    S.money=6000;
-    for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home) b.people=4; }
-    S.pop=12;
-    $('mIntro').classList.add('show');
-  }
+  S=newState((Math.random()*1e9)|0);
+  centerCam();
   $('taxSlider').value=S.tax; $('taxVal').textContent=S.tax+'%';
   $('spdLbl').textContent=SPD[S.speed][0];
   resize(); computeWater(); assignWorkers(); computeCoverage(); updateUI();
+  openTitle();
   // מצבי תצוגה לפיתוח הגרפיקה בלבד (?demo=1 גלריית מבנים, ?demo=2 עיר, &fast=1 מאכלס הולכי רגל)
   if(location.search.indexOf('demo')>=0){
-    $('mIntro').classList.remove('show');
+    showModal(null); inMenu=false;
     if(location.search.indexOf('demo=2')>=0) demoTown(); else demoCity();
     if(location.search.indexOf('fast')>=0) for(let k=0;k<400;k++) updateWalkers(0.06);
     const mg=/ghost=(\w+)&?g?=?(\d+)?,?(\d+)?/.exec(location.search);
