@@ -480,9 +480,14 @@ function genMap(st){
     }
   }
   // גיוון ויזואלי קבוע לכל אריח — נגזר מהזרע, כדי שהקרקע לא תיראה כמו לוח שחמט
+  /* גיוון הקרקע נבנה משתי תדירויות: כתמים רחבים בגודל שדה, ועליהם
+     שבירה עדינה פר-אריח. רעש פר-אריח בלבד נראה כמו רעש טלוויזיה. */
   for(let x=0;x<GRID;x++)for(let y=0;y<GRID;y++){
-    const i=idx(x,y), n=noise(x,y,st.seed);
-    st.tint[i]=Math.min(3,(n*4)|0);
+    const i=idx(x,y);
+    const n=smoothNoise(x,y,st.seed,6)*0.55
+           +smoothNoise(x,y,st.seed^0x51ed,2.5)*0.3
+           +noise(x,y,st.seed^0x27d4)*0.15;
+    st.tint[i]=Math.max(0,Math.min(3,((n-0.18)*5.2)|0));
     st.deco[i]=noise(x*3,y*3,st.seed^0x9e37)>0.82?1:0;
   }
 }
@@ -491,6 +496,17 @@ function noise(x,y,seed){
   let n=(x*374761393)^(y*668265263)^(seed*1442695040888963407);
   n=Math.imul(n^(n>>>13),1274126177);
   return ((n^(n>>>16))>>>0)/4294967296;
+}
+/* רעש חלק — דגימה בגריד גס עם החלקה ביניים. בלי זה הכתמים הרחבים
+   יוצאים ריבועים קשים בגודל הדגימה, וזה נראה כמו לוח שחמט. */
+function smoothNoise(x,y,seed,scale){
+  const fx=x/scale, fy=y/scale;
+  const x0=Math.floor(fx), y0=Math.floor(fy);
+  const tx=fx-x0, ty=fy-y0;
+  const sx=tx*tx*(3-2*tx), sy=ty*ty*(3-2*ty);
+  const a=noise(x0,y0,seed), b=noise(x0+1,y0,seed);
+  const c=noise(x0,y0+1,seed), d=noise(x0+1,y0+1,seed);
+  return (a*(1-sx)+b*sx)*(1-sy)+(c*(1-sx)+d*sx)*sy;
 }
 
 /* ============================ עזרי בניינים ============================ */
@@ -1059,17 +1075,30 @@ function diamond(x,y,s){
   const a=V(x,y),b=V(x+s,y),c=V(x+s,y+s),d=V(x,y+s);
   ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.lineTo(d[0],d[1]);ctx.closePath();
 }
+/* פאת קיר עם הצללה בבסיס — האור בא מלמעלה, אז החלק התחתון כהה יותר.
+   שתי מילויים שטוחים במקום גרדיאנט: אותו אפקט, בלי לשלם על אובייקט צבע לכל פאה. */
+function wallFace(p0,p1,h,col,aoAlpha){
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);
+  ctx.lineTo(p1[0],p1[1]-h);ctx.lineTo(p0[0],p0[1]-h);ctx.closePath();ctx.fill();
+  if(h>4&&detailShading){
+    const ao=Math.min(h*0.42,7);
+    ctx.fillStyle='rgba(38,28,18,'+aoAlpha+')';
+    ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);
+    ctx.lineTo(p1[0],p1[1]-ao);ctx.lineTo(p0[0],p0[1]-ao);ctx.closePath();ctx.fill();
+  }
+}
+let detailShading=true;
 function box(x,y,s,h,top,left,right){
   const a=V(x,y),b=V(x+s,y),c=V(x+s,y+s),d=V(x,y+s);
-  // צד שמאל (d-c)
-  ctx.fillStyle=left;
-  ctx.beginPath();ctx.moveTo(d[0],d[1]);ctx.lineTo(c[0],c[1]);ctx.lineTo(c[0],c[1]-h);ctx.lineTo(d[0],d[1]-h);ctx.closePath();ctx.fill();
-  // צד ימין (c-b)
-  ctx.fillStyle=right;
-  ctx.beginPath();ctx.moveTo(c[0],c[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(b[0],b[1]-h);ctx.lineTo(c[0],c[1]-h);ctx.closePath();ctx.fill();
-  // גג
+  wallFace(d,c,h,left,0.2);          // פאה שמאלית — בצל
+  wallFace(c,b,h,right,0.13);        // פאה ימנית — מוארת יותר
   ctx.fillStyle=top;
   ctx.beginPath();ctx.moveTo(a[0],a[1]-h);ctx.lineTo(b[0],b[1]-h);ctx.lineTo(c[0],c[1]-h);ctx.lineTo(d[0],d[1]-h);ctx.closePath();ctx.fill();
+  if(detailShading){                 // קו המפגש בין הפאות, נותן חדות לצללית
+    ctx.strokeStyle='rgba(40,28,16,0.18)'; ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(c[0],c[1]);ctx.lineTo(c[0],c[1]-h);ctx.stroke();
+  }
 }
 function roof(x,y,s,h,rh,c1,c2){
   const a=V(x,y),b=V(x+s,y),c=V(x+s,y+s),d=V(x,y+s);
@@ -1084,10 +1113,11 @@ function roof(x,y,s,h,rh,c1,c2){
 
 /* לוחות צבע לקרקע — ארבעה גוונים קרובים לכל סוג, נבחרים לפי הרעש של האריח */
 const PAL={
-  grass:['#587239','#5c763d','#547038','#5f793f'],
-  fert: ['#7b8a48','#7f8e4c','#788745','#83924f'],
-  tree: ['#3e5a2c','#436030','#395428','#486534'],
-  rock: ['#6d685c','#767063','#656055','#7c7669']
+  // ארבעה גוונים בסולם עולה — הכתמים הרחבים יוצרים שדות בהירים וכהים
+  grass:['#516d37','#57733d','#5d7942','#638048'],
+  fert: ['#7a8941','#808f47','#86954d','#8c9b54'],
+  tree: ['#385327','#3d5a2b','#42602f','#476734'],
+  rock: ['#686158','#6f6a60','#787369','#817c72']
 };
 function terrainColor(t,i){
   const v=S.tint[i];
@@ -1108,6 +1138,13 @@ function gable(x,y,s,h,rise,cTop,cSide,cEnd){
   poly([up(A),up(Bp),R2,R1],cTop);            // מדרון אחורי
   poly([up(D),up(C),R2,R1],cSide);            // מדרון קדמי
   poly([up(Bp),up(C),R2],cEnd);               // גמלון גלוי
+  if(detailShading){                          // מרזב מוצל מתחת לקצה הגג
+    ctx.strokeStyle='rgba(48,22,14,0.3)'; ctx.lineWidth=1.6;
+    ctx.beginPath();ctx.moveTo(up(D)[0],up(D)[1]);ctx.lineTo(up(C)[0],up(C)[1]);
+    ctx.lineTo(up(Bp)[0],up(Bp)[1]);ctx.stroke();
+    ctx.strokeStyle='rgba(255,236,200,0.22)'; ctx.lineWidth=1.2;   // רכס מואר
+    ctx.beginPath();ctx.moveTo(R1[0],R1[1]);ctx.lineTo(R2[0],R2[1]);ctx.stroke();
+  }
   // רעפים
   ctx.strokeStyle='rgba(60,24,16,0.22)'; ctx.lineWidth=1;
   for(let k=1;k<=4;k++){ const f=k/5;
@@ -1120,15 +1157,15 @@ function gable(x,y,s,h,rise,cTop,cSide,cEnd){
 /* תיבה מלבנית — box() מניח בסיס ריבועי, וזה לא מספיק לאגפים של אחוזה */
 function boxR(x,y,w,d,h,cTop,cL,cR){
   const A=V(x,y),Bp=V(x+w,y),C=V(x+w,y+d),D=V(x,y+d);
-  ctx.fillStyle=cL;
-  ctx.beginPath();ctx.moveTo(D[0],D[1]);ctx.lineTo(C[0],C[1]);
-  ctx.lineTo(C[0],C[1]-h);ctx.lineTo(D[0],D[1]-h);ctx.closePath();ctx.fill();
-  ctx.fillStyle=cR;
-  ctx.beginPath();ctx.moveTo(C[0],C[1]);ctx.lineTo(Bp[0],Bp[1]);
-  ctx.lineTo(Bp[0],Bp[1]-h);ctx.lineTo(C[0],C[1]-h);ctx.closePath();ctx.fill();
+  wallFace(D,C,h,cL,0.2);
+  wallFace(C,Bp,h,cR,0.13);
   ctx.fillStyle=cTop;
   ctx.beginPath();ctx.moveTo(A[0],A[1]-h);ctx.lineTo(Bp[0],Bp[1]-h);
   ctx.lineTo(C[0],C[1]-h);ctx.lineTo(D[0],D[1]-h);ctx.closePath();ctx.fill();
+  if(detailShading){
+    ctx.strokeStyle='rgba(40,28,16,0.18)'; ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(C[0],C[1]);ctx.lineTo(C[0],C[1]-h);ctx.stroke();
+  }
 }
 /* גג רכס על בסיס מלבני */
 function gableR(x,y,w,d,h,rise,cTop,cSide,cEnd){
@@ -1181,14 +1218,23 @@ function podium(x,y,s,h,c1,c2,c3){
   box(x,y,s,h,c1,c2,c3);
   box(x+0.09,y+0.09,s-0.18,h+2.5,c1,c2,c3);
 }
-/* צל רך מתחת למבנה — כיוון האור מלמעלה-שמאל */
+/* צל מוטל + צל מגע. הצל המוטל נותן כיוון אור, וצל המגע ההדוק
+   הוא מה שגורם למבנה להיראות מונח על הקרקע ולא מרחף מעליה. */
 function shadow(x,y,s,h){
   ctx.save();
   ctx.translate(h*0.42,h*0.2);
   diamond(x,y,s);
-  ctx.fillStyle='rgba(22,32,14,0.26)';
+  ctx.fillStyle='rgba(22,32,14,0.22)';
   ctx.fill();
   ctx.restore();
+  if(detailShading){
+    ctx.save();
+    ctx.translate(h*0.1,h*0.05);
+    diamond(x-0.03,y-0.03,s+0.06);
+    ctx.fillStyle='rgba(20,28,12,0.2)';
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 function draw(){
@@ -1207,14 +1253,21 @@ function draw(){
 
   // קרקע
   const t=Date.now()/1000, detail=terrainDetail();
+  detailShading=cam.z>(lowQ?1.3:0.7);   // הצללת המבנים מתבטלת יחד עם שאר הפרטים
   for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
     const i=idx(x,y), tr=S.terr[i];
     diamond(x,y,1);
     if(tr===T_WATER){
       const w=Math.sin((x*1.3+y*0.7)+t*1.5)*0.5+0.5, w2=Math.sin((x-y)*0.8-t*1.1)*0.5+0.5;
-      ctx.fillStyle='rgb('+(30+w*16|0)+','+(92+w2*22|0)+','+(126+w*20|0)+')';
+      ctx.fillStyle='rgb('+(28+w*18|0)+','+(88+w2*26|0)+','+(122+w*24|0)+')';
     } else ctx.fillStyle=terrainColor(tr,i);
     ctx.fill();
+    // ליטוף אור בגבול בין אריחים — מרכך את קווי היהלום הקשים
+    if(detail&&tr!==T_WATER&&S.tint[i]>=2){
+      const n1=V(x,y), e1=V(x+1,y);
+      ctx.strokeStyle='rgba(255,246,214,0.07)'; ctx.lineWidth=1.4;
+      ctx.beginPath();ctx.moveTo(n1[0],n1[1]);ctx.lineTo(e1[0],e1[1]);ctx.stroke();
+    }
     if(!detail) continue;
     const p=V(x+0.5,y+0.5);
     if(tr===T_WATER){
@@ -1225,9 +1278,12 @@ function draw(){
         ctx.strokeStyle='rgba(190,225,235,0.32)'; ctx.lineWidth=2;
         ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
       }
-      // ניצנוץ
-      if(S.deco[i]){ ctx.fillStyle='rgba(220,240,250,0.22)';
+      // נצנוץ שמש על הגלים
+      if(S.deco[i]){ ctx.fillStyle='rgba(226,244,252,0.26)';
         ctx.beginPath(); ctx.ellipse(p[0],p[1]+Math.sin(t*1.4+x)*1.5,6,1.6,0,0,6.3); ctx.fill(); }
+      const sh=Math.sin((x*0.9-y*1.1)+t*0.9);
+      if(sh>0.55){ ctx.fillStyle='rgba(255,250,225,'+((sh-0.55)*0.34).toFixed(2)+')';
+        ctx.beginPath(); ctx.ellipse(p[0]+4,p[1]-2,9,2.4,0,0,6.3); ctx.fill(); }
     } else if(tr===T_FERT){
       // תלמים בשדה
       ctx.strokeStyle='rgba(60,72,30,0.16)'; ctx.lineWidth=1;
