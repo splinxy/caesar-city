@@ -138,6 +138,25 @@
     padding:9px 13px;font-size:13px;font-weight:700;flex:none}
   .slot .sx{background:#ffffff14;border-radius:9px;padding:9px 11px;font-size:13px;flex:none}
   .slot.empty .sn{opacity:.5;font-weight:500}
+  /* ---------- campaign ---------- */
+  .ms{display:flex;align-items:center;gap:11px;background:#ffffff0e;border:1px solid #ffffff1c;
+    border-radius:12px;padding:11px 13px;margin-bottom:8px}
+  .ms.locked{opacity:.38}
+  .ms.done{border-color:#6f8f4a}
+  .ms .num{width:30px;height:30px;flex:none;border-radius:50%;background:#ffffff18;
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+  .ms.done .num{background:#6f8f4a;color:#17200e}
+  .ms .mi{flex:1;min-width:0}
+  .ms .mn{font-size:14.5px;font-weight:700}
+  .ms .mg{font-size:11.5px;opacity:.7;margin-top:3px;line-height:1.45}
+  .ms .mb{background:linear-gradient(#c9a94e,#a5842f);color:#231a0e;border-radius:9px;
+    padding:9px 13px;font-size:13px;font-weight:700;flex:none}
+  /* ---------- goal bar ---------- */
+  #goal .gwrap{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-top:3px}
+  #goal .g{background:#00000055;border:1px solid #ffffff1a;border-radius:7px;padding:2px 7px;
+    font-size:10.5px;white-space:nowrap}
+  #goal .g.ok{background:#5f8a3e44;border-color:#8fbf6a66;color:#cde9b4}
+  #goal .g b{font-weight:700}
   /* דיאלוג אישור פנימי — confirm() של הדפדפן נחסם בחלק מהמכשירים */
   #mAsk{z-index:30}
   .ask-card{max-width:330px;text-align:center}
@@ -184,9 +203,25 @@
   <h1>קיסר</h1>
   <div class="sub">בונה הערים</div>
   <div class="btn big" id="tContinue">▶︎ המשך משחק<b id="tContInfo"></b></div>
-  <div class="btn big" id="tNew">✦ משחק חדש</div>
+  <div class="btn big" id="tCamp">⚔️ מסע הכיבושים<b id="tCampInfo"></b></div>
+  <div class="btn big" id="tNew">✦ בנייה חופשית</div>
   <div class="btn big" id="tLoad">📁 טען משחק שמור</div>
   <div class="btn big" id="tHelp">📜 איך משחקים</div>
+</div></div>
+
+<div class="modal" id="mCamp"><div class="card">
+  <h1>מסע הכיבושים</h1>
+  <div class="sub">שבע ערים, כל אחת עם יעדים משלה</div>
+  <div id="campList"></div>
+  <div class="btn" id="campBack" style="height:44px;flex-direction:row;font-size:14px">חזרה</div>
+</div></div>
+
+<div class="modal" id="mWin"><div class="card ask-card">
+  <div style="font-size:46px;line-height:1">🏆</div>
+  <h1 id="winTitle">היעדים הושגו!</h1>
+  <p id="winText"></p>
+  <div class="btn big" id="winNext">⚔️ לשלב הבא</div>
+  <div class="btn" id="winStay" style="height:46px;flex-direction:row;font-size:14px">להישאר ולהמשיך לבנות</div>
 </div></div>
 
 <div class="modal" id="mNew"><div class="card">
@@ -313,6 +348,41 @@ const B={
 const CATS=[['infra','תשתיות'],['home','מגורים'],['food','מזון'],['work','מלאכה ומסחר'],['cult','תרבות ובריאות'],['safe','ביטחון'],['gov','ממשל'],['deco','נוי']];
 const RANKS=[[0,'כפר'],[120,'עיירה'],[350,'עיר'],[800,'עיר גדולה'],[1600,'מטרופולין'],[3000,'פנינת האימפריה']];
 
+/* ============================ מסע הכיבושים ============================
+   כל שלב הוא עיר חדשה עם יעדים משלה. משהשלמת אותם אפשר להתקדם לשלב הבא
+   או להישאר ולהמשיך לבנות — בדיוק כמו ב-Caesar 3. */
+const GOALS={
+  pop:    {n:'תושבים',        get:()=>S.pop},
+  money:  {n:'אוצר',          get:()=>Math.floor(S.money)},
+  mood:   {n:'מצב רוח',       get:()=>Math.round(S.mood)},
+  nice:   {n:'בתי טיח',       get:()=>cntHomes(3)},
+  villas: {n:'אחוזות',        get:()=>cntHomes(5)},
+  culture:{n:'מבני תרבות',    get:()=>Object.values(S.bl)
+            .filter(b=>b.t==='temple'||b.t==='theatre'||b.t==='baths').length}
+};
+function cntHomes(lv){ let n=0;
+  for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home&&b.level>=lv&&b.people>0) n++; }
+  return n; }
+const MISSIONS=[
+  {n:'קָפּוּאָה',      sub:'כפר ראשון בשדות קמפניה',      money:9000,  g:{pop:150,mood:54}},
+  {n:'טַרְקִינְיָה',   sub:'עיירה על אם הדרך',            money:8000,  g:{pop:300,money:12000}},
+  {n:'לוּגְדוּנוּם',   sub:'צומת הדרכים של גאליה',        money:8000,  g:{pop:500,mood:58,nice:20}},
+  {n:'מֶדִיוֹלָנוּם',  sub:'מרכז מלאכה משגשג',            money:7000,  g:{pop:800,money:18000,culture:5}},
+  {n:'קַרְתָגוֹ',      sub:'נמל הסחר הגדול',              money:7000,  g:{pop:1200,money:28000,nice:60}},
+  {n:'אָלֶכְּסַנְדְרִיָה',sub:'פנינת המזרח',              money:6000,  g:{pop:1800,mood:62,villas:15}},
+  {n:'רוֹמָא',        sub:'בירת האימפריה — המבחן האחרון',money:6000,  g:{pop:3000,mood:65,villas:40}}
+];
+const PROG_KEY='caesar-city-v1-progress';
+function campaignDone(){ return Math.max(0,parseInt(localStorage.getItem(PROG_KEY)||'0',10)||0); }
+function setCampaignDone(n){ try{ localStorage.setItem(PROG_KEY,String(n)); }catch(e){} }
+// מצב היעדים של השלב הנוכחי
+function missionGoals(){
+  const m=MISSIONS[S.mission]; if(!m) return null;
+  const list=[];
+  for(const k in m.g) list.push({k,n:GOALS[k].n,need:m.g[k],have:GOALS[k].get()});
+  return {m,list,done:list.every(g=>g.have>=g.need)};
+}
+
 /* ============================ מצב ============================ */
 let S=null, cam={x:0,y:0,z:1}, dirty=true;
 let tool=null, dozing=false, sel=null, overlay=0;
@@ -326,7 +396,7 @@ function newState(seed){
     road:new Uint8Array(GRID*GRID), entry:[0,0], exit:[0,0], cleared:[],
     bl:{}, nextId:1, money:6000, month:0, year:-320, tax:7,
     mood:55, food:0, pop:0, workers:0, jobs:0, employed:0, unemp:0,
-    name:'רומא החדשה',
+    name:'רומא החדשה', mission:-1, won:false,
     speed:1, income:0, expense:0, trade:0, lastFoodOK:true, foodRatio:1, rank:0, msgs:0
   };
   genMap(st);
@@ -631,8 +701,11 @@ function missingFor(b,L){
 // סדר עדיפויות בגיוס עובדים — קודם מה ששומר על העיר בחיים.
 // בתוך כל דרג העובדים מתחלקים באופן יחסי, כך שמחסור פוגע בכולם קצת
 // במקום להשבית לגמרי את הבניין האחרון בתור.
-const PRIO={prefect:1,engineer:1,granary:2,market:2,forum:2,wheat:3,veg:3,fruit:3,
-  temple:4,doctor:4,pottery:5,oilpress:5,weaver:5,baths:6,theatre:6};
+/* הסדר נקבע לפי "מה הורג את העיר הכי מהר אם אין בו איש":
+   רעב הורג תוך חודשים, שריפה היא סיכון מזדמן. לכן מזון לפני ביטחון —
+   אחרת שני משמרות עיר בולעים את כל העובדים של כפר, והחוות נשארות ריקות. */
+const PRIO={wheat:1,veg:1,fruit:1, granary:2,market:2, forum:3,
+  prefect:4,engineer:4, temple:5,doctor:5, pottery:6,oilpress:6,weaver:6, baths:7,theatre:7};
 function assignWorkers(){
   S.workers=Math.floor(S.pop*0.38);
   const tiers=new Map(); let need=0;
@@ -782,6 +855,22 @@ function monthTick(){
   /* ---- יועץ ---- */
   S.msgs++;
   if(S.msgs%7===0) advise();
+
+  /* ---- יעדי השלב ---- */
+  if(S.mission>=0 && !S.won){
+    const mg=missionGoals();
+    if(mg&&mg.done){
+      S.won=true; S.speed=0;
+      setCampaignDone(Math.max(campaignDone(),S.mission+1));
+      const nxt=MISSIONS[S.mission+1];
+      $('winTitle').textContent=mg.m.n+' — היעדים הושגו!';
+      $('winText').textContent=nxt
+        ? 'רומא מרוצה. השלב הבא: '+nxt.n+' — '+nxt.sub
+        : 'סיימת את כל מסע הכיבושים. הקיסר משתחווה בפניך.';
+      $('winNext').style.display=nxt?'':'none';
+      $('mWin').classList.add('show');
+    }
+  }
 
   /* ---- זמן ודרגה ---- */
   S.month++;
@@ -2000,10 +2089,18 @@ function updateUI(){
   set('sMood',face+Math.round(S.mood),S.mood<40?'bad':S.mood<55?'warn':'');
   set('sJobs',S.employed+'/'+S.workers,S.jobs>S.workers?'warn':'');
   set('sDate',MONTHS[S.month].slice(0,3)+' '+Math.abs(S.year)+(S.year<0?' לפנה"ס':''));
-  const nxt=RANKS[S.rank+1];
-  $('goal').textContent = nxt
-    ? RANKS[S.rank][1]+' • עוד '+fmt(nxt[0]-S.pop)+' תושבים ל'+nxt[1]
-    : RANKS[S.rank][1]+' • רומא מריעה לך!';
+  const mg=missionGoals();
+  if(mg){
+    $('goal').innerHTML=(S.won?'✔ ':'')+mg.m.n+
+      '<div class="gwrap">'+mg.list.map(g=>
+        '<span class="g'+(g.have>=g.need?' ok':'')+'">'+g.n+' <b>'+
+        fmt(Math.min(g.have,g.need))+'/'+fmt(g.need)+'</b></span>').join('')+'</div>';
+  } else {
+    const nxt=RANKS[S.rank+1];
+    $('goal').textContent = nxt
+      ? RANKS[S.rank][1]+' • עוד '+fmt(nxt[0]-S.pop)+' תושבים ל'+nxt[1]
+      : RANKS[S.rank][1]+' • רומא מריעה לך!';
+  }
 }
 
 /* --- תפריט בנייה --- */
@@ -2155,7 +2252,8 @@ $('taxSlider').oninput=e=>{ S.tax=+e.target.value; $('taxVal').textContent=S.tax
 const SLOTS=3, slotKey=n=>SAVE_KEY+'-slot'+n;
 
 function serialize(){
-  return {v:2,name:S.name,seed:S.seed,money:S.money,month:S.month,year:S.year,tax:S.tax,
+  return {v:2,name:S.name,seed:S.seed,mission:S.mission,won:S.won,
+    money:S.money,month:S.month,year:S.year,tax:S.tax,
     mood:S.mood,food:S.food,rank:S.rank,nextId:S.nextId,speed:S.speed,pop:S.pop,
     at:Date.now(),cam:{x:cam.x,y:cam.y,z:cam.z},cut:S.cleared,
     rub:Array.from(S.rubble).map((v,i)=>v?i:-1).filter(i=>i>=0),
@@ -2164,6 +2262,7 @@ function serialize(){
 function applySave(o){
   S=newState(o.seed); walkers.length=0;
   S.name=o.name||'העיר שלי';
+  S.mission=(o.mission==null?-1:o.mission); S.won=!!o.won;
   S.money=o.money;S.month=o.month;S.year=o.year;S.tax=o.tax;S.mood=o.mood;S.food=o.food;
   S.rank=o.rank||0;S.nextId=o.nextId||1;S.speed=o.speed==null?1:o.speed;
   for(const i of (o.rub||[])) S.rubble[i]=1;
@@ -2224,13 +2323,16 @@ $('askYes').onclick=()=>{ $('mAsk').classList.remove('show'); const f=askCb; ask
 $('askNo').onclick =()=>{ $('mAsk').classList.remove('show'); askCb=null; };
 
 function showModal(id){
-  ['mTitle','mNew','mSlots','mIntro','mMenu'].forEach(m=>$(m).classList.toggle('show',m===id));
+  ['mTitle','mNew','mSlots','mIntro','mMenu','mCamp','mWin'].forEach(m=>$(m).classList.toggle('show',m===id));
 }
 function openTitle(){
   inMenu=true; S.speed=0;
   const cont=readSlot(SAVE_KEY), lbl=slotLabel(cont);
   $('tContinue').classList.toggle('dim',!cont);
   $('tContInfo').textContent=lbl?'— '+lbl.name:'— אין משחק פעיל';
+  const done=campaignDone();
+  $('tCampInfo').textContent=done>=MISSIONS.length
+    ? '— הושלם!' : '— שלב '+(done+1)+' מתוך '+MISSIONS.length;
   showModal('mTitle');
 }
 // תצוגה מוקטנת של המפה שתוגרל, כדי לבחור נוף לפני שמתחילים
@@ -2260,9 +2362,51 @@ function openNew(){
   inMenu=true; newSeed=(Math.random()*1e9)|0;
   drawMapPreview(newSeed); showModal('mNew');
 }
+// מסך בחירת שלב
+function openCamp(){
+  inMenu=true; S.speed=0;
+  const done=campaignDone(), list=$('campList'); list.innerHTML='';
+  MISSIONS.forEach((m,i)=>{
+    const state=i<done?'done':(i<=done?'open':'locked');
+    const row=document.createElement('div');
+    row.className='ms '+(state==='locked'?'locked':state==='done'?'done':'');
+    const goals=Object.keys(m.g).map(k=>GOALS[k].n+' '+m.g[k].toLocaleString('he-IL')).join(' • ');
+    row.innerHTML='<div class="num">'+(state==='done'?'✓':(i+1))+'</div>'+
+      '<div class="mi"><div class="mn">'+m.n+'</div><div class="mg">'+m.sub+'<br>'+goals+'</div></div>'+
+      (state==='locked'?'<div style="font-size:17px;opacity:.6">🔒</div>'
+                       :'<div class="mb">'+(state==='done'?'שוב':'שחק')+'</div>');
+    const btn=row.querySelector('.mb');
+    if(btn) btn.onclick=()=>startMission(i);
+    list.appendChild(row);
+  });
+  showModal('mCamp');
+}
+function startMission(i){
+  const m=MISSIONS[i];
+  S=newState((Math.random()*1e9)|0); walkers.length=0;
+  S.name=m.n; S.mission=i; S.won=false;
+  S.money=m.money; S.pop=0; S.speed=1;
+  camToRoad();
+  localStorage.removeItem(SAVE_KEY);
+  inMenu=false;
+  $('taxSlider').value=S.tax; $('taxVal').textContent=S.tax+'%';
+  $('spdLbl').textContent=SPD[S.speed][0];
+  computeWater(); assignWorkers(); computeCoverage(); updateUI(); dirty=true;
+  showModal(null);
+  toast('⚔️ '+m.n+' — '+m.sub);
+}
+$('tCamp').onclick=openCamp;
+$('campBack').onclick=openTitle;
+$('winStay').onclick=()=>{ showModal(null); S.speed=1; $('spdLbl').textContent=SPD[1][0]; };
+$('winNext').onclick=()=>{
+  const nx=S.mission+1;
+  if(MISSIONS[nx]) startMission(nx); else openTitle();
+};
+
 function startNew(){
   S=newState(newSeed); walkers.length=0;
   S.name=($('newName').value||'').trim().slice(0,18)||'רומא החדשה';
+  S.mission=-1; S.won=false;
   S.money=8000; S.pop=0; S.speed=1;
   camToRoad();
   localStorage.removeItem(SAVE_KEY);
