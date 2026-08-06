@@ -1028,9 +1028,42 @@ function gable(x,y,s,h,rise,cTop,cSide,cEnd){
   }
   return {R1,R2,front:[up(Bp),up(C),R2]};
 }
+/* תיבה מלבנית — box() מניח בסיס ריבועי, וזה לא מספיק לאגפים של אחוזה */
+function boxR(x,y,w,d,h,cTop,cL,cR){
+  const A=V(x,y),Bp=V(x+w,y),C=V(x+w,y+d),D=V(x,y+d);
+  ctx.fillStyle=cL;
+  ctx.beginPath();ctx.moveTo(D[0],D[1]);ctx.lineTo(C[0],C[1]);
+  ctx.lineTo(C[0],C[1]-h);ctx.lineTo(D[0],D[1]-h);ctx.closePath();ctx.fill();
+  ctx.fillStyle=cR;
+  ctx.beginPath();ctx.moveTo(C[0],C[1]);ctx.lineTo(Bp[0],Bp[1]);
+  ctx.lineTo(Bp[0],Bp[1]-h);ctx.lineTo(C[0],C[1]-h);ctx.closePath();ctx.fill();
+  ctx.fillStyle=cTop;
+  ctx.beginPath();ctx.moveTo(A[0],A[1]-h);ctx.lineTo(Bp[0],Bp[1]-h);
+  ctx.lineTo(C[0],C[1]-h);ctx.lineTo(D[0],D[1]-h);ctx.closePath();ctx.fill();
+}
+/* גג רכס על בסיס מלבני */
+function gableR(x,y,w,d,h,rise,cTop,cSide,cEnd){
+  const A=V(x,y),Bp=V(x+w,y),C=V(x+w,y+d),D=V(x,y+d);
+  const up=p=>[p[0],p[1]-h];
+  const R1=[(A[0]+D[0])/2,(A[1]+D[1])/2-h-rise], R2=[(Bp[0]+C[0])/2,(Bp[1]+C[1])/2-h-rise];
+  const poly=(pts,c)=>{ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
+  poly([up(A),up(Bp),R2,R1],cTop);
+  poly([up(D),up(C),R2,R1],cSide);
+  poly([up(Bp),up(C),R2],cEnd);
+  ctx.strokeStyle='rgba(60,24,16,0.22)'; ctx.lineWidth=1;
+  for(let k=1;k<=3;k++){ const f=k/4;
+    const a=[up(D)[0]+(up(C)[0]-up(D)[0])*f, up(D)[1]+(up(C)[1]-up(D)[1])*f];
+    const b=[R1[0]+(R2[0]-R1[0])*f, R1[1]+(R2[1]-R1[1])*f];
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  }
+}
 /* לוח אופקי (כרכוב) — קירות רק בין שני גבהים, כדי לא להסתיר עמודים */
 function slab(x,y,s,y0,th,cTop,cL,cR){
-  const A=V(x,y),Bp=V(x+s,y),C=V(x+s,y+s),D=V(x,y+s);
+  // תמיכה גם בבסיס מלבני: slab(x,y,w,d,y0,th,...)
+  let d=s;
+  if(arguments.length>7){ d=y0; y0=th; th=cTop; cTop=cL; cL=cR; cR=arguments[8]; }
+  const A=V(x,y),Bp=V(x+s,y),C=V(x+s,y+d),D=V(x,y+d);
   ctx.fillStyle=cL;
   ctx.beginPath();ctx.moveTo(D[0],D[1]-y0);ctx.lineTo(C[0],C[1]-y0);
   ctx.lineTo(C[0],C[1]-y0-th);ctx.lineTo(D[0],D[1]-y0-th);ctx.closePath();ctx.fill();
@@ -1327,6 +1360,135 @@ function drawRubble(x,y){
   ctx.fillRect(p[0]-8,p[1]-5,7,1.8); ctx.fillRect(p[0]+2,p[1]-3,6,1.8);
 }
 
+/* ============================ סולם הדיור ============================
+   כל דרגה נבדלת בשלושה סימנים שאפשר לזהות במבט חטוף: חומר הגג
+   (סכך → רעפים → רעפים עם רכס מוזהב), חומר הקירות (בוץ → טיח → שיש),
+   וכמה מהמגרש הבית תופס (בקתה קטנה → אחוזה עם חצר). */
+function hgable(x,y,fx,fy,fw,h,rise,c1,c2,cEnd){ gable(x+fx,y+fy,fw,h,rise,c1,c2,cEnd); }
+function drawHouse(b,x,y){
+  const lv=b.level, p=V(x+0.5,y+0.5);
+  // הקרקע מספרת את הסיפור בעצמה: אדמה חשופה למטה, ריצוף שיש למעלה
+  diamond(x,y,1);
+  ctx.fillStyle=lv<=1?'#78764e':lv<=2?'#8a8060':lv<=4?'#a89a7c':'#cabda0';
+  ctx.fill();
+
+  if(lv===0){                       // אוהלי מתיישבים
+    ctx.fillStyle='rgba(24,34,14,0.26)';
+    ctx.beginPath();ctx.ellipse(p[0]+2,p[1]+2,12,5,0,0,6.3);ctx.fill();
+    for(const o of [[-6,3,0.85],[6,-1,1]]){
+      const H=15*o[2], bx=p[0]+o[0], by=p[1]+o[1];
+      ctx.fillStyle='#c2ad7d';
+      ctx.beginPath();ctx.moveTo(bx-8*o[2],by);ctx.lineTo(bx,by-H);ctx.lineTo(bx+8*o[2],by);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#93805a';
+      ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx,by-H);ctx.lineTo(bx+8*o[2],by);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#6b5a3a';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(bx,by-H);ctx.lineTo(bx+2,by-H-3.5);ctx.stroke();
+      ctx.fillStyle='#4a3a26';
+      ctx.beginPath();ctx.moveTo(bx-2.4*o[2],by);ctx.lineTo(bx,by-H*0.5);ctx.lineTo(bx+2.4*o[2],by);ctx.closePath();ctx.fill();
+    }
+    ctx.fillStyle='#5a4a34';ctx.beginPath();ctx.ellipse(p[0]-1,p[1]-4,3.4,1.7,0,0,6.3);ctx.fill();
+    ctx.fillStyle='#c9702f';ctx.beginPath();ctx.ellipse(p[0]-1,p[1]-5,2,1,0,0,6.3);ctx.fill();
+  }
+  else if(lv===1){                  // בקתה עגולה עם גג סכך חרוטי
+    shadow(x,y,1,12);
+    const r=13;
+    ctx.fillStyle='#9a8158';
+    ctx.beginPath();ctx.ellipse(p[0],p[1]-4,r,r*0.5,0,0,6.3);ctx.fill();
+    ctx.fillRect(p[0]-r,p[1]-12,r*2,8);
+    ctx.fillStyle='#87714b';ctx.fillRect(p[0],p[1]-12,r,8);
+    ctx.fillStyle='#c7a765';           // סכך
+    ctx.beginPath();ctx.moveTo(p[0]-r-2,p[1]-11);
+    ctx.quadraticCurveTo(p[0],p[1]-34,p[0]+r+2,p[1]-11);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='rgba(120,94,48,0.45)';ctx.lineWidth=1;
+    for(let k=-2;k<=2;k++){ ctx.beginPath();ctx.moveTo(p[0]+k*4.5,p[1]-11);
+      ctx.lineTo(p[0]+k*1.6,p[1]-28);ctx.stroke(); }
+    ctx.fillStyle='#4a3826';
+    ctx.beginPath();ctx.moveTo(p[0]-3,p[1]-4);ctx.lineTo(p[0]-3,p[1]-11);
+    ctx.lineTo(p[0]+3,p[1]-11);ctx.lineTo(p[0]+3,p[1]-4);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#7d6a48';ctx.fillRect(p[0]+r-4,p[1]-9,3,5);
+  }
+  else if(lv===2){                  // צריף לבני בוץ עם גג סכך משופע
+    shadow(x,y,1,13);
+    box(x+0.14,y+0.14,0.72,12,'#b09368','#7f6845','#9a805a');
+    hgable(x,y,0.09,0.09,0.82,12.5,7,'#b08f4e','#c9a65e','#a08454');
+    ctx.strokeStyle='rgba(110,86,44,0.4)';ctx.lineWidth=1;
+    for(let k=1;k<=3;k++){ const q=V(x+0.09+0.82*k/4,y+0.91);
+      ctx.beginPath();ctx.moveTo(q[0],q[1]-12.5);ctx.lineTo(q[0]-2,q[1]-19);ctx.stroke(); }
+    ctx.fillStyle='#4a3826'; ctx.fillRect(p[0]-2.6,p[1]-12,5.2,7);
+    ctx.fillStyle='#8a7250'; ctx.fillRect(p[0]-11,p[1]-9,4,3);  // קרש תמיכה
+  }
+  else if(lv===3){                  // בית טיח ראשון עם גג רעפים
+    shadow(x,y,1,15);
+    box(x+0.12,y+0.12,0.76,14,'#e8dcc0','#ab9d80','#cfc2a2');
+    hgable(x,y,0.06,0.06,0.88,14.5,8,'#8f4a33','#ab5c3d','#efe4cb');
+    ctx.fillStyle='#4b3826'; ctx.fillRect(p[0]-2.6,p[1]-14,5.2,8);
+    ctx.fillStyle='#c9a94e'; ctx.fillRect(p[0]-3.4,p[1]-14.8,6.8,1.2);
+    ctx.fillStyle='rgba(70,52,34,0.7)';
+    ctx.fillRect(p[0]-11,p[1]-17,3.4,3.4); ctx.fillRect(p[0]+8,p[1]-17,3.4,3.4);
+  }
+  else if(lv===4){                  // בית דו-קומתי
+    shadow(x,y,1,22);
+    box(x+0.1,y+0.1,0.8,21,'#eee3c8','#b1a385','#d6c9a8');
+    // חגורת הפרדה בין הקומות
+    slab(x+0.08,y+0.08,0.84,10.5,2,'#d8caa6','#a2957a','#c4b795');
+    hgable(x,y,0.04,0.04,0.92,21.5,9,'#8f4a33','#ab5c3d','#efe4cb');
+    ctx.fillStyle='#4b3826'; ctx.fillRect(p[0]-2.8,p[1]-9,5.6,8);
+    ctx.fillStyle='rgba(70,52,34,0.72)';
+    for(const o of [-11,-3.5,4]) ctx.fillRect(p[0]+o,p[1]-19,3.6,4);
+    ctx.fillRect(p[0]-11,p[1]-7.5,3.4,3.4); ctx.fillRect(p[0]+8,p[1]-7.5,3.4,3.4);
+    ctx.fillStyle='#5f8a3e';        // עציץ ליד הפתח
+    ctx.beginPath();ctx.arc(p[0]+8,p[1]-3,2.6,0,6.3);ctx.fill();
+  }
+  else if(lv===5){                  // אחוזה עם אכסדרת עמודים
+    shadow(x,y,1,24);
+    box(x+0.1,y+0.1,0.62,22,'#f3ead0','#b6a888','#dcd0af');
+    hgable(x+0.02,y+0.02,0.04,0.04,0.68,22.5,9,'#8f4a33','#ab5c3d','#f2e8cf');
+    // אגף נמוך בצד
+    box(x+0.6,y+0.34,0.34,13,'#eee3c8','#ab9d80','#d0c3a3');
+    hgable(x,y,0.57,0.31,0.4,13.5,5.5,'#8f4a33','#ab5c3d','#efe4cb');
+    // מרפסת עמודים אמיתית — עמודים נושאים גג, לא פסים על הקיר
+    for(let k=0;k<3;k++) column(x+0.16+k*0.24,y+0.95,0,13,3.4);
+    slab(x+0.1,y+0.1,0.8,13,2.4,'#faf3e0','#c2b596','#e4d8b8');
+    ctx.fillStyle='#4b3826'; ctx.fillRect(p[0]-9,p[1]-11,5,8);
+    ctx.fillStyle='rgba(70,52,34,0.7)'; ctx.fillRect(p[0]-13,p[1]-20,3.4,4);
+  }
+  else {                            // אחוזת פאר סביב חצר פנימית
+    shadow(x,y,1,26);
+    const WT='#f7efd9', WL='#bcae8d', WR='#e2d7b6';
+    const RT='#8f4a33', RS='#ab5c3d', RE='#f6efd8';
+    // 1) רצפת החצר והבריכה — קודם כול, שהקירות יעלו מסביבה
+    const c=V(x+0.5,y+0.42);
+    ctx.fillStyle='#e8dec2';
+    ctx.beginPath();ctx.ellipse(c[0],c[1],17,8.5,0,0,6.3);ctx.fill();
+    ctx.fillStyle='#c4b795';
+    ctx.beginPath();ctx.ellipse(c[0],c[1],11.5,5.8,0,0,6.3);ctx.fill();
+    ctx.fillStyle='#4aa6d4';
+    ctx.beginPath();ctx.ellipse(c[0],c[1]-0.6,9.5,4.8,0,0,6.3);ctx.fill();
+    ctx.strokeStyle='rgba(240,250,255,0.55)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.ellipse(c[0],c[1]-0.6,5.5,2.8,0,0,6.3);ctx.stroke();
+    // 2) האגף האחורי (y קטן = רחוק, מצויר ראשון)
+    boxR(x+0.06,y+0.06,0.88,0.2,21,WT,WL,WR);
+    gableR(x+0.03,y+0.03,0.94,0.26,21.5,7,RT,RS,RE);
+    // 3) אגפי הצדדים
+    boxR(x+0.06,y+0.26,0.2,0.5,17,WT,WL,WR);
+    gableR(x+0.03,y+0.24,0.26,0.54,17.5,6,RT,RS,RE);
+    boxR(x+0.74,y+0.26,0.2,0.5,17,WT,WL,WR);
+    gableR(x+0.71,y+0.24,0.26,0.54,17.5,6,RT,RS,RE);
+    // 4) ברושים בחצר, בין האגפים
+    for(const o of [-13,13]){
+      ctx.fillStyle='#2c4a24';
+      ctx.beginPath();ctx.moveTo(c[0]+o,c[1]-17);ctx.quadraticCurveTo(c[0]+o+4.5,c[1]-9,c[0]+o,c[1]-2);
+      ctx.quadraticCurveTo(c[0]+o-4.5,c[1]-9,c[0]+o,c[1]-17);ctx.fill();
+    }
+    // 5) אכסדרת החזית — אחרונה, כדי שתיראה מלפנים
+    for(let k=0;k<4;k++) column(x+0.14+k*0.24,y+0.97,0,16,3.6);
+    boxR(x+0.06,y+0.9,0.88,0.06,16,WT,WL,WR);
+    slab(x+0.04,y+0.86,0.92,0.12,16,2.8,'#fdf8ea','#c8bb9c','#eae0c2');
+    gableR(x+0.03,y+0.84,0.94,0.16,19,5,'#b9922f','#d4ad3d','#f6efd8');
+  }
+  if(b.hunger>2) warn(x,y,1,'🍽');
+}
+
 /* צבע גג לכל סוג — משמש בציור המרוחק, שבו כל הפרטים ממילא נבלעים */
 const LOD_COL={house:'#a85a3c',temple:'#a3573b',forum:'#c9a94e',theatre:'#d2c5a6',
   market:'#c1503d',granary:'#c7b28c',baths:'#dcd0b0',doctor:'#4f7d8f',prefect:'#a03a2c',
@@ -1440,56 +1602,7 @@ function drawB(b){
       }
       break;
     }
-    case 'house': {
-      const lv=b.level, h=8+lv*3.2, p=V(x+0.5,y+0.5);
-      if(lv===0){
-        // אוהלי מתיישבים
-        diamond(x,y,1);ctx.fillStyle='#6f7c50';ctx.fill();
-        ctx.fillStyle='rgba(24,34,14,0.28)';
-        ctx.beginPath();ctx.ellipse(p[0]+3,p[1]+1,11,5,0,0,6.3);ctx.fill();
-        for(const o of [[-5,2,0.8],[6,-1,1]]){
-          const H=15*o[2];
-          ctx.fillStyle='#b8a273';
-          ctx.beginPath();ctx.moveTo(p[0]+o[0]-8*o[2],p[1]+o[1]);ctx.lineTo(p[0]+o[0],p[1]+o[1]-H);ctx.lineTo(p[0]+o[0]+8*o[2],p[1]+o[1]);ctx.closePath();ctx.fill();
-          ctx.fillStyle='#8f7c54';
-          ctx.beginPath();ctx.moveTo(p[0]+o[0],p[1]+o[1]);ctx.lineTo(p[0]+o[0],p[1]+o[1]-H);ctx.lineTo(p[0]+o[0]+8*o[2],p[1]+o[1]);ctx.closePath();ctx.fill();
-          ctx.strokeStyle='#6b5a3a';ctx.lineWidth=1;
-          ctx.beginPath();ctx.moveTo(p[0]+o[0],p[1]+o[1]-H);ctx.lineTo(p[0]+o[0]+1.5,p[1]+o[1]-H-3);ctx.stroke();
-        }
-      } else {
-        shadow(x,y,1,h);
-        const wallT=lv>=5?'#f2e9d2':lv>=3?'#e6d8b4':'#cdb58c';
-        const wallL=lv>=5?'#b8ab88':lv>=3?'#ab9c78':'#94805c';
-        const wallR=lv>=5?'#ddd1b4':lv>=3?'#d0c19c':'#b9a178';
-        box(x+0.08,y+0.08,0.84,h,wallT,wallL,wallR);
-        const rh=7+lv*0.8;
-        roof(x+0.01,y+0.01,0.98,h,rh,'#8a4630','#a85a3c');
-        // שורות רעפים
-        ctx.strokeStyle='rgba(70,28,18,0.28)'; ctx.lineWidth=1;
-        for(let k=1;k<=3;k++){
-          const f=k/4, a=V(x+0.01+0.98*f/2,y+0.01+0.98*f/2);
-          const w=(0.98*(1-f))/2;
-          const c1=V(x+0.01+0.98*f/2, y+0.99-0.98*f/2), c2=V(x+0.99-0.98*f/2, y+0.01+0.98*f/2);
-          ctx.beginPath();
-          ctx.moveTo(c1[0],c1[1]-h-rh*f); ctx.lineTo(a[0],a[1]-h-rh*f); ctx.lineTo(c2[0],c2[1]-h-rh*f);
-          ctx.stroke();
-        }
-        // דלת וחלונות
-        ctx.fillStyle='#4b3826'; ctx.fillRect(p[0]-2.4,p[1]-h+1,4.8,Math.min(7,h-2));
-        if(lv>=2){ ctx.fillStyle='rgba(60,45,30,0.75)';
-          ctx.fillRect(p[0]-11,p[1]-h-1,3.2,3.2); ctx.fillRect(p[0]+8,p[1]-h-1,3.2,3.2); }
-        if(lv>=4){ // מרפסת עמודים
-          ctx.fillStyle='#f4ecd8';
-          for(let k=0;k<3;k++){ const q=V(x+0.2+k*0.3,y+0.98); ctx.fillRect(q[0]-1.3,q[1]-h+1,2.6,h-3); }
-        }
-        if(lv>=6){ // גינת פאר על הגג
-          ctx.fillStyle='#4f8038';
-          ctx.beginPath();ctx.arc(p[0]-6,p[1]-h-rh-2,3.4,0,6.3);ctx.arc(p[0]+5,p[1]-h-rh-1,3,0,6.3);ctx.fill();
-        }
-      }
-      if(b.hunger>2) warn(x,y,s,'🍽');
-      break;
-    }
+    case 'house': drawHouse(b,x,y); break;
     case 'wheat': case 'veg': case 'fruit': {
       diamond(x,y,s); ctx.fillStyle='#8a7f52'; ctx.fill();   // אדמה חרושה
       const grow=clamp(b.prod/(B[b.t].food||1),0.18,1);
@@ -2286,7 +2399,8 @@ function demoCity(){
   const focus=mr?+mr[1]:0;
   const fy=[y0-1,y0+5,y0+10,y0+15,y0+20,34][focus]||y0;
   const fx=[12,10,12,12,10,33][focus]||12;
-  const c2=V(fx,fy); cam.x=c2[0]; cam.y=c2[1];
+  const mfx=/fx=(\d+)/.exec(location.search);
+  const c2=V(mfx?+mfx[1]:fx,fy); cam.x=c2[0]; cam.y=c2[1];
   updateUI(); dirty=true;
 }
 // עיר לדוגמה להערכת התמונה הכוללת: ?demo=2
