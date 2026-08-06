@@ -58,9 +58,9 @@
     padding:8px 10px calc(var(--safe-b) + 10px);max-height:74%;display:flex;flex-direction:column}
   #sheet.open{transform:translateY(0)}
   #grip{width:44px;height:4px;border-radius:3px;background:#ffffff33;margin:2px auto 8px}
-  #cats{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
-  #cats::-webkit-scrollbar{display:none}
-  .cat{white-space:nowrap;background:#ffffff12;border:1px solid #ffffff18;border-radius:20px;padding:7px 13px;font-size:13px;font-weight:600}
+  /* כל הקטגוריות גלויות בבת אחת — עדיף על גלילה אופקית נסתרת */
+  #cats{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:8px}
+  .cat{white-space:nowrap;background:#ffffff12;border:1px solid #ffffff18;border-radius:20px;padding:8px 13px;font-size:13px;font-weight:600}
   .cat.on{background:var(--gold);color:#20180f;border-color:#ffe9a8}
   #items{overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;padding:2px 0 4px}
   .item{background:#ffffff0e;border:1px solid #ffffff18;border-radius:13px;padding:9px 6px;text-align:center;min-height:92px;
@@ -229,12 +229,15 @@ const B={
  prefect:   {n:'משמר העיר',   em:'🚒',cat:'safe', cost:45, s:1,jobs:6,walk:12,svc:'fire'},
  engineer:  {n:'מהנדס העיר',  em:'🔧',cat:'safe', cost:45, s:1,jobs:5,walk:12,svc:'eng'},
  forum:     {n:'פורום',       em:'🏦',cat:'gov',  cost:130,s:2,jobs:6,walk:14,svc:'tax'},
+ pottery:   {n:'בית יוצר',    em:'🏺',cat:'work', cost:85, s:1,jobs:12,earn:15,dirty:2},
+ oilpress:  {n:'בית בד',      em:'🫒',cat:'work', cost:120,s:2,jobs:16,earn:22,dirty:3},
+ weaver:    {n:'בית אריגה',   em:'🧵',cat:'work', cost:150,s:2,jobs:20,earn:30,dirty:2},
  garden:    {n:'גינה',        em:'🌳',cat:'deco', cost:12, s:1,drag:1,des:4,flat:1},
  plaza:     {n:'כיכר שיש',    em:'⬜',cat:'deco', cost:16, s:1,drag:1,des:2,flat:1},
  statue:    {n:'פסל',         em:'🗿',cat:'deco', cost:40, s:1,des:9},
  obelisk:   {n:'אובליסק',     em:'🕋',cat:'deco', cost:90, s:1,des:16}
 };
-const CATS=[['infra','תשתיות'],['home','מגורים'],['food','מזון'],['cult','תרבות ובריאות'],['safe','ביטחון'],['gov','ממשל'],['deco','נוי']];
+const CATS=[['infra','תשתיות'],['home','מגורים'],['food','מזון'],['work','מלאכה ומסחר'],['cult','תרבות ובריאות'],['safe','ביטחון'],['gov','ממשל'],['deco','נוי']];
 const RANKS=[[0,'כפר'],[120,'עיירה'],[350,'עיר'],[800,'עיר גדולה'],[1600,'מטרופולין'],[3000,'פנינת האימפריה']];
 
 /* ============================ מצב ============================ */
@@ -247,9 +250,10 @@ function newState(seed){
   const st={
     seed:seed>>>0, terr:new Uint8Array(GRID*GRID), occ:new Int32Array(GRID*GRID),
     rubble:new Uint8Array(GRID*GRID), tint:new Uint8Array(GRID*GRID), deco:new Uint8Array(GRID*GRID),
+    cleared:[],
     bl:{}, nextId:1, money:6000, month:0, year:-320, tax:7,
     mood:55, food:0, pop:0, workers:0, jobs:0, employed:0, unemp:0,
-    speed:1, income:0, expense:0, lastFoodOK:true, foodRatio:1, rank:0, msgs:0
+    speed:1, income:0, expense:0, trade:0, lastFoodOK:true, foodRatio:1, rank:0, msgs:0
   };
   genMap(st);
   return st;
@@ -358,8 +362,15 @@ function place(t,x,y,quiet){
   const id=S.nextId++;
   const b={id,t,x,y,s:d.s,people:0,level:0,staff:0,fire:0,dmg:0,water:false,age:0,hunger:0,des:0,prod:0};
   S.bl[id]=b;
-  for(const[X,Y]of tiles(b)){ S.occ[idx(X,Y)]=id; if(S.terr[idx(X,Y)]===T_TREE) S.terr[idx(X,Y)]=T_GRASS; }
-  S.money-=d.cost; dirty=true; return true;
+  for(const[X,Y]of tiles(b)){ S.occ[idx(X,Y)]=id;
+    if(S.terr[idx(X,Y)]===T_TREE){ S.terr[idx(X,Y)]=T_GRASS; S.cleared.push(idx(X,Y)); } }
+  S.money-=d.cost;
+  // חיווי מיידי על חוסר גישה לכביש, בלי לחכות לסוף החודש
+  b.noRoad=(d.jobs>0||(d.svc&&d.svc!=='water'))&&!hasRoad(b);
+  // כביש חדש עשוי לחבר שכנים שהיו מנותקים
+  if(t==='road') for(const[X,Y]of ring(x,y,1)){ const n=bAt(X,Y);
+    if(n&&n.noRoad) n.noRoad=!hasRoad(n); }
+  dirty=true; return true;
 }
 function remove(b,refund){
   for(const[X,Y]of tiles(b)) S.occ[idx(X,Y)]=0;
@@ -466,8 +477,10 @@ function computeCoverage(){
         desG[idx(x,y)]+=Math.max(0,d.des-dd*Math.ceil(d.des/(r+1)));
       }
     }
-    if(d.food&&d.jobs){ // חוות מורידות יוקרה סביבן
-      for(const[X,Y]of ring(b.x,b.y,b.s)) desG[idx(X,Y)]-=2;
+    if(d.dirty||(d.food&&d.jobs)){ // חוות ובתי מלאכה מורידים את יוקרת השכונה
+      const pen=d.dirty||2, r=d.dirty?2:1;
+      for(let X=b.x-r;X<b.x+b.s+r;X++)for(let Y=b.y-r;Y<b.y+b.s+r;Y++)
+        if(inb(X,Y)) desG[idx(X,Y)]-=pen;
     }
     if(!d.svc||d.svc==='water') continue;
     if(b.noRoad) continue;
@@ -502,7 +515,8 @@ function missingFor(b,L){
 // סדר עדיפויות בגיוס עובדים — קודם מה ששומר על העיר בחיים.
 // בתוך כל דרג העובדים מתחלקים באופן יחסי, כך שמחסור פוגע בכולם קצת
 // במקום להשבית לגמרי את הבניין האחרון בתור.
-const PRIO={prefect:1,engineer:1,granary:2,market:2,forum:2,wheat:3,veg:3,fruit:3,temple:4,doctor:4,baths:5,theatre:5};
+const PRIO={prefect:1,engineer:1,granary:2,market:2,forum:2,wheat:3,veg:3,fruit:3,
+  temple:4,doctor:4,pottery:5,oilpress:5,weaver:5,baths:6,theatre:6};
 function assignWorkers(){
   S.workers=Math.floor(S.pop*0.38);
   const tiers=new Map(); let need=0;
@@ -601,12 +615,17 @@ function monthTick(){
   S.pop=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home) S.pop+=b.people; }
 
   /* ---- כספים ---- */
-  let inc=0;
-  for(const id in S.bl){ const b=S.bl[id];
-    if(!B[b.t].home||!b.people) continue;
+  let inc=0, trade=0;
+  for(const id in S.bl){ const b=S.bl[id], d=B[b.t];
+    if(d.earn){ // בתי מלאכה מוכרים את תוצרתם
+      if(!b.noRoad) trade+=d.earn*b.staff;
+      continue;
+    }
+    if(!d.home||!b.people) continue;
     if(!cov.tax[idx(b.x,b.y)]) continue;
     inc+=HOUSE[b.level].tax*(b.people/HOUSE[b.level].cap)*(S.tax/7);
   }
+  S.trade=trade; inc+=trade;
   const exp=S.employed*0.4; // שכר עובדים — כבישים ובנייני נוי לא עולים תחזוקה
   S.income=inc; S.expense=exp;
   S.money=Math.round((S.money+inc-exp)*100)/100;
@@ -620,7 +639,7 @@ function monthTick(){
     let target=50;
     target += S.foodRatio*9 - (1-S.foodRatio)*32;
     target += (7-S.tax)*2.2;
-    target -= Math.max(0,S.unemp-0.15)*25;
+    target -= Math.max(0,S.unemp-0.2)*22;
     if(S.jobs>S.workers) target -= Math.min(10,(S.jobs-S.workers)/Math.max(1,S.jobs)*20);
     if(S.money<0) target -= 12;
     let lvSum=0,hc=0;
@@ -634,12 +653,12 @@ function monthTick(){
   /* ---- אסונות ---- */
   for(const id in S.bl){ const b=S.bl[id], d=B[b.t];
     if(d.flat||b.t==='aqueduct'||b.t==='well') continue;
-    if(d.home&&b.level===0) continue; // אוהלים לא שורפים ולא קורסים
+    if(d.home&&b.level<=1) continue; // אוהלים ובקתות פטורים, כדי שהעיר הצעירה תשרוד
     const i=idx(b.x,b.y);
-    if(!cov.fire[i] && Math.random()<0.0009){
+    if(!cov.fire[i] && Math.random()<0.0007){
       destroy(b,true); toast('🔥 שריפה! בנה משמר עיר בקרבת מקום'); continue;
     }
-    if(!cov.eng[i] && Math.random()<0.0007){ destroy(b,true); toast('🧱 מבנה קרס — חסר מהנדס עיר'); }
+    if(!cov.eng[i] && Math.random()<0.0005){ destroy(b,true); toast('🧱 מבנה קרס — חסר מהנדס עיר'); }
   }
 
   /* ---- יועץ ---- */
@@ -708,7 +727,7 @@ function updateWalkers(dt){
       if(b.noRoad) continue;
       if(d.svc&&d.svc!=='water'&&b.staff>=0.25) cands.push([b,b.t]);
       else if(d.home&&b.people>0) cands.push([b,'home']);
-      else if(d.food&&b.staff>0.3) cands.push([b,'cart']);
+      else if((d.food||d.earn)&&b.staff>0.3) cands.push([b,'cart']);
     }
     // ככל שהעיר גדולה יותר, כך רחובותיה הומים יותר
     const want=Math.min(70,6+Math.floor(S.pop/14));
@@ -779,7 +798,7 @@ function advise(){
     return toast('👨‍🌾 היועץ: חסר מזון! בנה עוד חוות על אדמה פורייה');
   }
   if(S.jobs>S.workers*1.2) return toast('👷 היועץ: אין מספיק עובדים למבנים שבנית');
-  if(S.unemp>0.3) return toast('👷 היועץ: אבטלה גבוהה — בנה חוות ומבני שירות');
+  if(S.unemp>0.3) return toast('👷 היועץ: אבטלה גבוהה — בנה בתי מלאכה, הם גם מכניסים כסף');
   let tax=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home&&b.people&&cov.tax[idx(b.x,b.y)]) tax++; }
   if(!tax) return toast('🏦 היועץ: אין הכנסות — הצב פורום בטווח הליכה מהבתים');
   // מה הכי חוסם את שדרוג הבתים
@@ -1002,7 +1021,8 @@ function draw(){
     const sz=dozing?1:B[tool].s;
     let anyOk=false, lastP=null;
     for(const[x,y]of ghost){
-      const ok=dozing ? !!(bAt(x,y)||S.rubble[idx(x,y)]) : canPlace(tool,x,y,true);
+      const ok=dozing ? !!(bAt(x,y)||S.rubble[idx(x,y)]||S.terr[idx(x,y)]===T_TREE)
+                      : canPlace(tool,x,y,true);
       if(ok) anyOk=true;
       diamond(x,y,sz);
       ctx.fillStyle=dozing
@@ -1032,8 +1052,18 @@ function draw(){
   drawDemoLabels();
 
   ctx.restore();
+
+  // הצללה עדינה בשוליים — נותנת עומק ומרכזת את המבט
+  if(!vign||vign.w!==W||vign.h!==H){
+    const g2=ctx.createRadialGradient(W/2,H*0.45,Math.min(W,H)*0.35,W/2,H*0.45,Math.max(W,H)*0.78);
+    g2.addColorStop(0,'rgba(0,0,0,0)');
+    g2.addColorStop(1,'rgba(12,10,8,0.34)');
+    vign={w:W,h:H,g:g2};
+  }
+  ctx.fillStyle=vign.g; ctx.fillRect(0,0,W,H);
   dirty=false;
 }
+let vign=null;
 
 function drawTree(x,y){
   const p=V(x+0.5,y+0.5), i=idx(x,y), n=S.tint[i], cypress=S.deco[i];
@@ -1070,10 +1100,21 @@ function drawRock(x,y){
   ctx.restore();
 }
 function drawRubble(x,y){
-  diamond(x,y,1); ctx.fillStyle='#4a4038'; ctx.fill();
-  const p=V(x+0.5,y+0.5);
-  ctx.fillStyle='#6b5c4c';
-  for(let i=0;i<4;i++){ const a=i*1.9; ctx.fillRect(p[0]+Math.cos(a)*7-2,p[1]+Math.sin(a)*4-2,4,3); }
+  diamond(x,y,1); ctx.fillStyle='#5b5046'; ctx.fill();
+  const p=V(x+0.5,y+0.5), n=noise(x,y,S.seed);
+  ctx.fillStyle='#3a322a';
+  ctx.beginPath();ctx.ellipse(p[0],p[1]-1,12,6,0,0,6.3);ctx.fill();
+  for(let i=0;i<7;i++){
+    const a=i*0.9+n*6, r=2+((i*7+x*3+y)%4);
+    ctx.fillStyle=i%3===0?'#8b7a66':i%3===1?'#736555':'#9c8b74';
+    ctx.save();
+    ctx.translate(p[0]+Math.cos(a)*8*(0.4+n),p[1]+Math.sin(a)*4*(0.4+n)-2);
+    ctx.rotate(n*2+i);
+    ctx.fillRect(-r/2,-r/3,r,r*0.7);
+    ctx.restore();
+  }
+  ctx.fillStyle='#4a3b2c';
+  ctx.fillRect(p[0]-8,p[1]-5,7,1.8); ctx.fillRect(p[0]+2,p[1]-3,6,1.8);
 }
 
 function drawB(b){
@@ -1118,11 +1159,30 @@ function drawB(b){
       break;
     }
     case 'aqueduct': {
-      diamond(x,y,1); ctx.fillStyle='#8c8272'; ctx.fill();
-      box(x+0.12,y+0.12,0.76,16,'#cfc4ac','#9b9080','#b8ac95');
-      const p=V(x+0.5,y+0.5);
-      ctx.fillStyle=b.water?'#4aa8d8':'#6d6558';
-      ctx.fillRect(p[0]-7,p[1]-19,14,3);
+      diamond(x,y,1); ctx.fillStyle='#7f7565'; ctx.fill();
+      const isAq=(X,Y)=>{const n=bAt(X,Y);return !!(n&&(n.t==='aqueduct'||n.t==='reservoir'||n.t==='fountain'))};
+      // הצינור עובר לאורך הציר שבו יש המשך — כך הקו נראה רציף
+      const alongX=isAq(x-1,y)||isAq(x+1,y), alongY=isAq(x,y-1)||isAq(x,y+1);
+      const H=17, ax=alongX||!alongY;
+      const a=ax?V(x,y+0.5):V(x+0.5,y), c2=ax?V(x+1,y+0.5):V(x+0.5,y+1);
+      // עמודי הקשת
+      ctx.fillStyle='#a89c86';
+      for(const f of [0.16,0.84]){
+        const q=[a[0]+(c2[0]-a[0])*f,a[1]+(c2[1]-a[1])*f];
+        ctx.fillRect(q[0]-3.4,q[1]-H,6.8,H);
+      }
+      // קשת
+      ctx.strokeStyle='#bcb098'; ctx.lineWidth=4;
+      ctx.beginPath();
+      ctx.moveTo(a[0]+(c2[0]-a[0])*0.16,a[1]+(c2[1]-a[1])*0.16-H+3);
+      ctx.quadraticCurveTo((a[0]+c2[0])/2,(a[1]+c2[1])/2-H-6,
+        a[0]+(c2[0]-a[0])*0.84,a[1]+(c2[1]-a[1])*0.84-H+3);
+      ctx.stroke();
+      // התעלה עצמה
+      ctx.strokeStyle='#cfc4ac'; ctx.lineWidth=7;
+      ctx.beginPath();ctx.moveTo(a[0],a[1]-H-1);ctx.lineTo(c2[0],c2[1]-H-1);ctx.stroke();
+      ctx.strokeStyle=b.water?'#49a8d6':'#655d50'; ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(a[0],a[1]-H-3);ctx.lineTo(c2[0],c2[1]-H-3);ctx.stroke();
       break;
     }
     case 'reservoir': {
@@ -1143,12 +1203,31 @@ function drawB(b){
       break;
     }
     case 'fountain': {
-      diamond(x,y,1); ctx.fillStyle='#cfc4ac'; ctx.fill();
+      diamond(x,y,1); ctx.fillStyle='#d7ccb4'; ctx.fill();
+      ctx.strokeStyle='rgba(150,138,112,0.5)';ctx.lineWidth=1;ctx.stroke();
       const p=V(x+0.5,y+0.5);
-      ctx.fillStyle='#b6ab94';ctx.beginPath();ctx.ellipse(p[0],p[1]-4,11,6,0,0,6.3);ctx.fill();
-      ctx.fillStyle=b.water?'#4fb0dd':'#5c5449';ctx.beginPath();ctx.ellipse(p[0],p[1]-5,8,4.2,0,0,6.3);ctx.fill();
-      if(b.water){ ctx.fillStyle='#8fd6f0'; ctx.fillRect(p[0]-1.5,p[1]-18,3,13);
-        ctx.beginPath();ctx.arc(p[0],p[1]-19,3,0,6.3);ctx.fill(); }
+      // אגן
+      ctx.fillStyle='#a89d86';ctx.beginPath();ctx.ellipse(p[0],p[1]-3,13,7,0,0,6.3);ctx.fill();
+      ctx.fillStyle='#c8bda4';ctx.beginPath();ctx.ellipse(p[0],p[1]-5,13,7,0,0,6.3);ctx.fill();
+      ctx.fillStyle=b.water?'#3f9cd0':'#5c5449';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-5,9.5,5,0,0,6.3);ctx.fill();
+      // עמוד מרכזי
+      ctx.fillStyle='#ddd2b8'; ctx.fillRect(p[0]-2.2,p[1]-17,4.4,12);
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-17,5,2.4,0,0,6.3);ctx.fill();
+      if(b.water){
+        const t2=Date.now()/380;
+        ctx.strokeStyle='rgba(150,215,242,0.85)'; ctx.lineWidth=1.6;
+        for(let k=0;k<5;k++){
+          const a=k*1.256+t2*0.4;
+          ctx.beginPath();ctx.moveTo(p[0],p[1]-19);
+          ctx.quadraticCurveTo(p[0]+Math.cos(a)*5,p[1]-23,p[0]+Math.cos(a)*9,p[1]-6+Math.sin(a)*2);
+          ctx.stroke();
+        }
+        ctx.fillStyle='rgba(220,245,255,0.75)';
+        ctx.beginPath();ctx.arc(p[0],p[1]-20,2.6,0,6.3);ctx.fill();
+        ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.ellipse(p[0],p[1]-5,5+Math.sin(t2)*2,2.6+Math.sin(t2)*1,0,0,6.3);ctx.stroke();
+      }
       break;
     }
     case 'house': {
@@ -1202,17 +1281,105 @@ function drawB(b){
       break;
     }
     case 'wheat': case 'veg': case 'fruit': {
-      diamond(x,y,s); ctx.fillStyle='#7d8b4a'; ctx.fill();
-      const col=b.t==='wheat'?'#d6b752':b.t==='veg'?'#5f9440':'#8f5fa0';
-      const grow=clamp(b.prod/(B[b.t].food||1),0.15,1);
-      for(let i=0;i<5;i++){
-        const a=V(x+0.1,y+0.15+i*0.36*s/2), c=V(x+s-0.1,y+0.15+i*0.36*s/2);
-        ctx.strokeStyle=col; ctx.lineWidth=2.6*grow+1;
-        ctx.beginPath();ctx.moveTo(a[0],a[1]-3);ctx.lineTo(c[0],c[1]-3);ctx.stroke();
+      diamond(x,y,s); ctx.fillStyle='#8a7f52'; ctx.fill();   // אדמה חרושה
+      const grow=clamp(b.prod/(B[b.t].food||1),0.18,1);
+      // תלמים
+      ctx.strokeStyle='rgba(92,78,44,0.45)'; ctx.lineWidth=1.2;
+      for(let i=1;i<10;i++){
+        const a=V(x+0.06,y+0.06+(s-0.12)*i/10), c=V(x+s-0.06,y+0.06+(s-0.12)*i/10);
+        ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(c[0],c[1]);ctx.stroke();
       }
-      box(x+0.05,y+0.05,0.5,9,'#c9b087','#96805f','#b39b73');
-      roof(x+0.02,y+0.02,0.56,9,5,'#7d5236','#95633f');
+      if(b.t==='fruit'){
+        // מטע: שורות עצים קטנים
+        for(let i=0;i<3;i++)for(let j=0;j<3;j++){
+          const q=V(x+0.35+i*0.6,y+0.35+j*0.6);
+          ctx.fillStyle='#5a4028'; ctx.fillRect(q[0]-1,q[1]-5,2,5);
+          ctx.fillStyle='#3f6b2c';
+          ctx.beginPath();ctx.arc(q[0],q[1]-8,4.4*grow+1.6,0,6.3);ctx.fill();
+          ctx.fillStyle='#8f4f9c';
+          ctx.beginPath();ctx.arc(q[0]+2,q[1]-9,1.3,0,6.3);ctx.fill();
+        }
+      } else {
+        const col=b.t==='wheat'?'#d3b551':'#69a044', col2=b.t==='wheat'?'#e8d07e':'#84bd58';
+        for(let i=0;i<9;i++){
+          const t0=0.08+(s-0.16)*i/9;
+          const a=V(x+0.08,y+t0), c=V(x+s-0.08,y+t0);
+          ctx.strokeStyle=col; ctx.lineWidth=3.2*grow+0.8;
+          ctx.beginPath();ctx.moveTo(a[0],a[1]-3*grow);ctx.lineTo(c[0],c[1]-3*grow);ctx.stroke();
+          ctx.strokeStyle=col2; ctx.lineWidth=1.1*grow;
+          ctx.beginPath();ctx.moveTo(a[0],a[1]-4.5*grow);ctx.lineTo(c[0],c[1]-4.5*grow);ctx.stroke();
+        }
+      }
+      // בית האיכר בפינה
+      shadow(x+0.04,y+0.04,0.52,10);
+      box(x+0.06,y+0.06,0.48,10,'#c9b087','#96805f','#b39b73');
+      gable(x+0.03,y+0.03,0.54,10.5,5,'#7d5236','#95633f','#e0d3b4');
       if(b.noRoad) warn(x,y,s,'🚧'); else if(b.staff<0.6) warn(x,y,s,'👷');
+      break;
+    }
+    case 'pottery': case 'oilpress': case 'weaver': {
+      shadow(x,y,s,16);
+      const roofC=b.t==='pottery'?['#9c4f30','#b85f39']
+                 :b.t==='oilpress'?['#5f6b34','#74813f']
+                 :['#6a4b74','#7f5b8b'];
+      // הסדנה עצמה תופסת חלק מהמגרש, השאר הוא חצר עבודה
+      const w=s>1?s*0.62:s-0.1;
+      diamond(x,y,s); ctx.fillStyle='#9c8f74'; ctx.fill();
+      box(x+0.05,y+0.05,w,13,'#c9b189','#94805e','#b39b74');
+      gable(x+0.02,y+0.02,w+0.06,13.5,6,roofC[0],roofC[1],'#e2d5b6');
+      // ארובה עם עשן
+      const ch=V(x+w*0.8,y+0.15);
+      ctx.fillStyle='#8d7a58'; ctx.fillRect(ch[0]-2.6,ch[1]-26,5.2,13);
+      ctx.fillStyle='#6f5d40'; ctx.fillRect(ch[0]-3.4,ch[1]-27.5,7,2);
+      const t2=Date.now()/900;
+      for(let k=0;k<3;k++){
+        const o=(t2+k*0.55)%2.2;
+        ctx.fillStyle='rgba(214,208,198,'+(0.42-o*0.16).toFixed(2)+')';
+        ctx.beginPath();ctx.arc(ch[0]+Math.sin(o*2.4)*3.5,ch[1]-29-o*8,2+o*2,0,6.3);ctx.fill();
+      }
+      // החצר — כל מלאכה והכלים שלה
+      const yard=V(x+s-w*0.45,y+s-0.35);
+      if(b.t==='pottery'){
+        // כבשן + כדים מוכנים
+        ctx.fillStyle='#8a5a3c';
+        ctx.beginPath();ctx.ellipse(yard[0]-2,yard[1]-4,7,6.5,0,3.14,6.28);ctx.fill();
+        ctx.fillStyle='#5e3a24';
+        ctx.beginPath();ctx.arc(yard[0]-2,yard[1]-3,2.2,3.14,6.28);ctx.fill();
+        for(let k=0;k<3;k++){
+          const q=[yard[0]+6+k*4.5,yard[1]-1-((k%2)*3)];
+          ctx.fillStyle='#c2703f';
+          ctx.beginPath();ctx.ellipse(q[0],q[1]-3,2.6,3.6,0,0,6.3);ctx.fill();
+          ctx.fillStyle='#9a5730'; ctx.fillRect(q[0]-1,q[1]-7.4,2,1.8);
+        }
+      } else if(b.t==='oilpress'){
+        // ריחיים
+        ctx.fillStyle='#8f8578';
+        ctx.beginPath();ctx.ellipse(yard[0],yard[1]-3,9,4.6,0,0,6.3);ctx.fill();
+        ctx.fillStyle='#b0a596';
+        ctx.beginPath();ctx.ellipse(yard[0],yard[1]-5,9,4.6,0,0,6.3);ctx.fill();
+        ctx.fillStyle='#6f6659';
+        ctx.beginPath();ctx.ellipse(yard[0],yard[1]-5.5,4,2,0,0,6.3);ctx.fill();
+        ctx.fillStyle='#7a6a4a'; ctx.fillRect(yard[0]-0.9,yard[1]-16,1.8,11);
+        ctx.fillStyle='#5f7a34';
+        ctx.beginPath();ctx.arc(yard[0]+9,yard[1]-4,2.4,0,6.3);ctx.arc(yard[0]+12,yard[1]-2,2,0,6.3);ctx.fill();
+      } else {
+        // חבל עם בדים נשטחים לייבוש
+        ctx.fillStyle='#7a6a4a';
+        ctx.fillRect(yard[0]-11,yard[1]-17,1.6,15); ctx.fillRect(yard[0]+10,yard[1]-17,1.6,15);
+        ctx.strokeStyle='#8d7d5c'; ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(yard[0]-10,yard[1]-16);ctx.lineTo(yard[0]+11,yard[1]-16);ctx.stroke();
+        const cols=['#b8506a','#e0c96a','#5f86b0'];
+        for(let k=0;k<3;k++){
+          ctx.fillStyle=cols[k];
+          ctx.beginPath();
+          ctx.moveTo(yard[0]-8+k*7,yard[1]-16);
+          ctx.lineTo(yard[0]-3+k*7,yard[1]-16);
+          ctx.lineTo(yard[0]-3.6+k*7,yard[1]-5+Math.sin(Date.now()/600+k)*0.8);
+          ctx.lineTo(yard[0]-7.4+k*7,yard[1]-5+Math.sin(Date.now()/600+k+1)*0.8);
+          ctx.closePath();ctx.fill();
+        }
+      }
+      if(b.noRoad) warn(x,y,s,'🚧'); else if(b.noStaff) warn(x,y,s,'👷');
       break;
     }
     case 'granary': {
@@ -1434,12 +1601,15 @@ function endPtr(e){
   if(!p) return;
   if(dragTiles){
     const list=dragTiles.slice(); dragTiles=null; ghost=null;
-    if(dozing){ let n=0;
+    if(dozing){ let n=0, trees=0;
       for(const[x,y]of list){
         if(S.rubble[idx(x,y)]){ S.rubble[idx(x,y)]=0; n++; continue; }
-        const b=bAt(x,y); if(b){ remove(b,true); n++; }
+        const b=bAt(x,y); if(b){ remove(b,true); n++; continue; }
+        // כריתת עצים — אחרת חורשה חוסמת את הבנייה לנצח
+        if(S.terr[idx(x,y)]===T_TREE){ S.terr[idx(x,y)]=T_GRASS; S.cleared.push(idx(x,y)); trees++; }
       }
       if(n) toast(n>1?n+' מבנים נהרסו':'נהרס');
+      else if(trees) toast(trees>1?trees+' עצים נכרתו':'העץ נכרת');
       dirty=true; updateUI(); return;
     }
     let n=0;
@@ -1605,7 +1775,10 @@ function showPanel(b){
     if(d.jobs) rows.push('עובדים: <b>'+Math.round(d.jobs*b.staff)+'</b> מתוך '+d.jobs+
       '<div class="bar"><i style="width:'+Math.round(b.staff*100)+'%"></i></div>');
     if(d.food) rows.push('תפוקה חודשית: <b>'+Math.round(b.prod)+'</b> מנות מזון');
-    if(d.store) rows.push('קיבולת אחסון: <b>'+Math.round(d.store*(0.4+0.6*b.staff))+'</b> מנות');
+    if(d.earn) rows.push('הכנסה חודשית: <b>'+Math.round(d.earn*b.staff)+' ₪</b> ממכירת התוצרת');
+    if(d.dirty) rows.push('מוריד יוקרה בשכונה — הרחק מבתי מגורים');
+    if(d.store) rows.push('קיבולת אחסון: <b>'+Math.round(d.store*(0.5+0.5*b.staff))+'</b> מנות'+
+      '<br>במחסני העיר כרגע: <b>'+Math.round(S.food)+'</b> מנות');
     if(d.svc&&d.svc!=='water') rows.push('שירות: <b>'+(SVC_HE[d.svc]||{fire:'כיבוי אש',eng:'תחזוקה',tax:'גביית מסים'}[d.svc])+
       '</b> • טווח הליכה: '+d.walk+' אריחי כביש');
     if(d.svc==='water') rows.push('מספק מים ברדיוס '+d.rad+' אריחים'+(d.lvl===2?' (איכות גבוהה)':''));
@@ -1626,7 +1799,8 @@ function showPanel(b){
 $('bMenu').onclick=()=>{
   $('menuStats').innerHTML=
     'דרגת העיר: <b>'+RANKS[S.rank][1]+'</b><br>'+
-    'הכנסות חודשיות: <b>'+Math.round(S.income)+' ₪</b><br>'+
+    'הכנסות חודשיות: <b>'+Math.round(S.income)+' ₪</b>'+
+      (S.trade?' <span style="opacity:.7">(מתוכן '+Math.round(S.trade)+' ₪ ממלאכה)</span>':'')+'<br>'+
     'הוצאות חודשיות: <b>'+Math.round(S.expense)+' ₪</b><br>'+
     'מקומות עבודה: <b>'+S.jobs+'</b> • כוח עבודה: <b>'+S.workers+'</b><br>'+
     'אבטלה: <b>'+Math.round(S.unemp*100)+'%</b><br>'+
@@ -1644,7 +1818,8 @@ $('bOverlay').onclick=()=>{
 $('bNew').onclick=()=>{
   if(!confirm('למחוק את העיר ולהתחיל מחדש?')) return;
   localStorage.removeItem(SAVE_KEY);
-  S=newState(Math.random()*1e9|0); centerCam(); computeWater(); computeCoverage();
+  S=newState(Math.random()*1e9|0); walkers.length=0;
+  centerCam(); computeWater(); computeCoverage();
   $('mMenu').classList.remove('show'); updateUI(); dirty=true;
 };
 $('taxSlider').oninput=e=>{ S.tax=+e.target.value; $('taxVal').textContent=S.tax+'%'; };
@@ -1653,7 +1828,8 @@ $('taxSlider').oninput=e=>{ S.tax=+e.target.value; $('taxVal').textContent=S.tax
 function save(){
   try{
     const o={v:1,seed:S.seed,money:S.money,month:S.month,year:S.year,tax:S.tax,mood:S.mood,food:S.food,
-      rank:S.rank,nextId:S.nextId,cam:{x:cam.x,y:cam.y,z:cam.z},
+      rank:S.rank,nextId:S.nextId,speed:S.speed,cam:{x:cam.x,y:cam.y,z:cam.z},
+      cut:S.cleared,
       rub:Array.from(S.rubble).map((v,i)=>v?i:-1).filter(i=>i>=0),
       bl:Object.values(S.bl).map(b=>[b.id,b.t,b.x,b.y,b.people,b.level,b.hunger,b.age])};
     localStorage.setItem(SAVE_KEY,JSON.stringify(o));
@@ -1665,8 +1841,11 @@ function load(){
     if(!o||!o.seed&&o.seed!==0) return false;
     S=newState(o.seed);
     S.money=o.money;S.month=o.month;S.year=o.year;S.tax=o.tax;S.mood=o.mood;S.food=o.food;
-    S.rank=o.rank||0;S.nextId=o.nextId||1;
+    S.rank=o.rank||0;S.nextId=o.nextId||1;S.speed=o.speed==null?1:o.speed;
     for(const i of (o.rub||[])) S.rubble[i]=1;
+    // עצים שנכרתו — המפה נוצרת מחדש מהזרע, לכן צריך להחיל את השינויים
+    S.cleared=o.cut||[];
+    for(const i of S.cleared) if(S.terr[i]===T_TREE) S.terr[i]=T_GRASS;
     for(const a of o.bl){
       const d=B[a[1]]; if(!d) continue;
       const b={id:a[0],t:a[1],x:a[2],y:a[3],s:d.s,people:a[4],level:a[5],staff:0,hunger:a[6]||0,age:a[7]||0,
@@ -1720,7 +1899,7 @@ function demoCity(){
   S.money=1e9;
   // שטח שטוח ונקי
   for(let x=2;x<GRID-2;x++)for(let y=2;y<GRID-2;y++) S.terr[idx(x,y)]=T_GRASS;
-  for(let x=8;x<20;x++)for(let y=8;y<20;y++) S.terr[idx(x,y)]=T_FERT;
+  for(let x=4;x<30;x++)for(let y=23;y<27;y++) S.terr[idx(x,y)]=T_FERT;
   demoLabels=[];
   const P=(t,x,y)=>{ const ok=place(t,x,y,true); if(ok) demoLabels.push([x,y,B[t].n]); return ok; };
   // רחוב ראשי עם בתים בכל הדרגות
@@ -1735,13 +1914,15 @@ function demoCity(){
   // שורת מבנים ציבוריים
   const row=(y,list)=>{ let x=6; for(const t of list){ P(t,x,y); x+=B[t].s+1; } };
   for(let x=4;x<=30;x++){ place('road',x,y0+4,true); place('road',x,y0+9,true); place('road',x,y0+14,true); }
+  for(let x=4;x<=30;x++) place('road',x,y0+19,true);
   row(y0+5,['temple','theatre','forum','market']);
   row(y0+10,['granary','baths','doctor','prefect','engineer','well']);
   row(y0+15,['wheat','veg','fruit','statue','obelisk','plaza']);
+  row(y0+20,['pottery','oilpress','weaver']);
   // שרשרת מים
-  for(let x=4;x<=8;x++) S.terr[idx(x,26)]=T_WATER;
-  P('reservoir',6,27); for(let k=0;k<4;k++) place('aqueduct',6,29+k,true);
-  P('fountain',7,32);
+  for(let x=30;x<=36;x++) S.terr[idx(x,30)]=T_WATER;
+  P('reservoir',32,31); for(let k=0;k<5;k++) place('aqueduct',32,33+k,true);
+  P('fountain',33,38);
   // עצים סביב
   for(let k=0;k<40;k++){ const x=3+((noise(k,1,7)*36)|0), y=3+((noise(k,2,7)*36)|0);
     if(!S.occ[idx(x,y)]&&S.terr[idx(x,y)]===T_GRASS&&(x>30||y>34)) S.terr[idx(x,y)]=T_TREE; }
@@ -1752,8 +1933,8 @@ function demoCity(){
   const mz=/z=([\d.]+)/.exec(location.search), mr=/row=(\d+)/.exec(location.search);
   cam.z=mz?+mz[1]:1.0;
   const focus=mr?+mr[1]:0;
-  const fy=[y0-1,y0+5,y0+10,y0+15,30][focus]||y0;
-  const fx=[12,10,12,12,7][focus]||12;
+  const fy=[y0-1,y0+5,y0+10,y0+15,y0+20,34][focus]||y0;
+  const fx=[12,10,12,12,10,33][focus]||12;
   const c2=V(fx,fy); cam.x=c2[0]; cam.y=c2[1];
   updateUI(); dirty=true;
 }
