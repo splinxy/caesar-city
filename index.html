@@ -138,6 +138,11 @@
     padding:9px 13px;font-size:13px;font-weight:700;flex:none}
   .slot .sx{background:#ffffff14;border-radius:9px;padding:9px 11px;font-size:13px;flex:none}
   .slot.empty .sn{opacity:.5;font-weight:500}
+  /* דיאלוג אישור פנימי — confirm() של הדפדפן נחסם בחלק מהמכשירים */
+  #mAsk{z-index:30}
+  .ask-card{max-width:330px;text-align:center}
+  .ask-card h1{font-size:19px}
+  .ask-card p{opacity:.8}
   .taxrow{display:flex;align-items:center;gap:10px;margin:8px 0}
   .taxrow input{flex:1;accent-color:var(--gold)}
 </style>
@@ -206,6 +211,13 @@
   <h1 id="slotsTitle">משחקים שמורים</h1>
   <div id="slotList"></div>
   <div class="btn" id="slotsBack" style="height:44px;flex-direction:row;font-size:14px">חזרה</div>
+</div></div>
+
+<div class="modal" id="mAsk"><div class="card ask-card">
+  <h1 id="askTitle"></h1>
+  <p id="askText"></p>
+  <div class="btn big" id="askYes">אישור</div>
+  <div class="btn" id="askNo" style="height:46px;flex-direction:row;font-size:14px">ביטול</div>
 </div></div>
 
 <div class="modal" id="mIntro"><div class="card">
@@ -1904,10 +1916,8 @@ $('bClose').onclick=()=>$('mMenu').classList.remove('show');
 $('bHelp').onclick=()=>{ $('mMenu').classList.remove('show'); $('mIntro').classList.add('show'); };
 $('bSave').onclick=()=>openSlots('save');
 $('bLoad').onclick=()=>openSlots('load');
-$('bTitle').onclick=()=>{
-  if(!confirm('לחזור למסך הראשי? המשחק יישמר אוטומטית.')) return;
-  save(); openTitle();
-};
+// חזרה למסך הראשי אינה הרסנית — נשמר אוטומטית ו"המשך משחק" יחזיר לכאן
+$('bTitle').onclick=()=>{ save(); openTitle(); };
 $('bStart').onclick=()=>{
   if(inMenu) openTitle();          // הגענו להוראות מהמסך הראשי
   else { showModal(null); save(); toast('התחל בהנחת כביש, ואז מגרשי מגורים לצידו'); }
@@ -1976,7 +1986,20 @@ document.addEventListener('visibilitychange',()=>{ if(document.hidden) save(); }
 window.addEventListener('pagehide',save);
 
 /* ============================ מסך פתיחה, משחק חדש וסלוטים ============================ */
-let inMenu=true, newSeed=0;
+let inMenu=true, newSeed=0, askCb=null;
+
+/* דיאלוג אישור משלנו. confirm() המובנה מוחזר כ-false בלי להציג כלום
+   בחלק מהמכשירים (PWA במסך הבית, דפדפנים מוטמעים), וזה גרם לכפתורים
+   להיראות כאילו הם פשוט לא עובדים. */
+function ask(title,text,yes,cb){
+  $('askTitle').textContent=title;
+  $('askText').textContent=text||'';
+  $('askYes').textContent=yes||'אישור';
+  askCb=cb;
+  $('mAsk').classList.add('show');
+}
+$('askYes').onclick=()=>{ $('mAsk').classList.remove('show'); const f=askCb; askCb=null; if(f) f(); };
+$('askNo').onclick =()=>{ $('mAsk').classList.remove('show'); askCb=null; };
 
 function showModal(id){
   ['mTitle','mNew','mSlots','mIntro','mMenu'].forEach(m=>$(m).classList.toggle('show',m===id));
@@ -2039,10 +2062,13 @@ function openSlots(mode){
       (o?'<div class="sx">🗑️</div>':'');
     row.querySelector('.sa').onclick=()=>{
       if(mode==='save'){
-        if(o&&!confirm('להחליף את "'+lbl.name+'"?')) return;
-        if(writeSlot(slotKey(i))) toast('המשחק נשמר במשבצת '+i);
-        $('mSlots').classList.remove('show');
-        if(!inMenu) $('mMenu').classList.add('show');
+        const doSave=()=>{
+          if(writeSlot(slotKey(i))) toast('המשחק נשמר במשבצת '+i);
+          $('mSlots').classList.remove('show');
+          if(!inMenu) $('mMenu').classList.add('show');
+        };
+        if(o) ask('להחליף שמירה?','"'+lbl.name+'" יימחק ובמקומו תישמר העיר הנוכחית.','החלף',doSave);
+        else doSave();
       } else {
         if(!o) return;
         applySave(o); inMenu=false; S.speed=1;
@@ -2052,8 +2078,8 @@ function openSlots(mode){
       }
     };
     const del=row.querySelector('.sx');
-    if(del) del.onclick=()=>{ if(confirm('למחוק את "'+lbl.name+'"?')){
-      localStorage.removeItem(slotKey(i)); openSlots(mode); } };
+    if(del) del.onclick=()=>ask('למחוק שמירה?','"'+lbl.name+'" יימחק לצמיתות.','מחק',()=>{
+      localStorage.removeItem(slotKey(i)); openSlots(mode); });
     list.appendChild(row);
   }
   showModal('mSlots');
