@@ -1150,8 +1150,12 @@ function draw(){
   drawGate(S.exit[0],S.exit[1],'VIA');
   drawWalkers(minX,maxX,minY,maxY);
 
+  // תצוגה מקדימה תקפה רק כשיש כלי פעיל. בלי הבדיקה הזו ביטול הכלי
+  // באמצע גרירה משאיר ghost יתום, ו-draw() קורס.
+  if(ghost && !tool && !dozing) ghost=null;
+
   // טווח השירות של המבנה שעומדים להניח — עונה על "למה הבית הזה לא מקבל מים?"
-  if(ghost && ghost.length===1 && !dozing && (B[tool].rad||B[tool].walk)){
+  if(ghost && ghost.length===1 && !dozing && tool && (B[tool].rad||B[tool].walk)){
     const d0=B[tool], gx=ghost[0][0], gy=ghost[0][1];
     previewCov.fill(0);
     if(d0.rad) radFill(previewCov,gx,gy,d0.s,d0.rad);
@@ -1174,7 +1178,7 @@ function draw(){
   }
 
   // תצוגה מקדימה של הבנייה/ההריסה מתחת לאצבע
-  if(ghost && ghost.length){
+  if(ghost && ghost.length && (tool||dozing)){
     const sz=dozing?1:B[tool].s;
     let anyOk=false, lastP=null;
     for(const[x,y]of ghost){
@@ -1876,7 +1880,8 @@ function buildSheet(){
     if(tool===k) e.style.cssText='background:#c9a94e;color:#20180f';
     e.innerHTML='<div class="em">'+d.em+'</div><div class="nm">'+d.n+'</div><div class="cs" style="'+(tool===k?'color:#4a3a1a':'')+'">'+d.cost+' ₪</div>';
     e.onclick=()=>{
-      tool=(tool===k?null:k); dozing=false; sel=null; hidePanel();
+      const next=(tool===k?null:k);
+      clearTool(); tool=next; sel=null; hidePanel();
       $('bDoze').classList.remove('on');
       $('bBuild').classList.toggle('on',!!tool);
       buildSheet();
@@ -1900,9 +1905,9 @@ $('bBuild').onclick=()=>{
   openSheet(!open);
 };
 $('bDoze').onclick=()=>{
-  dozing=!dozing; tool=null; sel=null; hidePanel(); openSheet(false);
+  const next=!dozing;
+  clearTool(); dozing=next; sel=null; hidePanel(); openSheet(false);
   $('bDoze').classList.toggle('on',dozing);
-  $('bBuild').classList.remove('on');
   if(dozing){
     toast('מצב הריסה — החזק וגרור על המפה');
     $('curTool').innerHTML='<span class="ic">⛏️</span>מצב הריסה<span class="xx">✕</span>';
@@ -1910,13 +1915,15 @@ $('bDoze').onclick=()=>{
   } else $('curTool').classList.remove('on');
   dirty=true;
 };
-// הקשה על שבב הכלי הפעיל מבטלת אותו
-$('curTool').onclick=()=>{
-  tool=null; dozing=false;
+// ביטול הכלי חייב לנקות גם גרירה שנמצאת באמצעה
+function clearTool(){
+  tool=null; dozing=false; ghost=null; dragTiles=null;
   $('curTool').classList.remove('on');
   $('bDoze').classList.remove('on'); $('bBuild').classList.remove('on');
-  buildSheet(); dirty=true;
-};
+  dirty=true;
+}
+// הקשה על שבב הכלי הפעיל מבטלת אותו
+$('curTool').onclick=()=>{ clearTool(); buildSheet(); };
 const SPD=[['עצור',0],['רגיל',1],['מהיר',2],['מהיר מאוד',4]];
 $('bSpeed').onclick=()=>{
   S.speed=(S.speed+1)%4;
@@ -2303,14 +2310,25 @@ function drawDemoLabels(){
 
 let acc=0, last=performance.now();
 const MONTH_MS=2600;
+/* שגיאה בפריים בודד לא תפיל את המשחק. לפני ההגנה הזו, כל חריגה
+   בציור עצרה את requestAnimationFrame לצמיתות והמשחק פשוט "נתקע". */
+let errCount=0;
 function loop(t){
-  const dt=Math.min(200,t-last); last=t;
-  if(S.speed>0){
-    acc+=dt*SPD[S.speed][1];
-    while(acc>=MONTH_MS){ acc-=MONTH_MS; monthTick(); }
-    updateWalkers(Math.min(0.2,dt/1000)*SPD[S.speed][1]);
+  try{
+    const dt=Math.min(200,t-last); last=t;
+    if(S.speed>0){
+      acc+=dt*SPD[S.speed][1];
+      while(acc>=MONTH_MS){ acc-=MONTH_MS; monthTick(); }
+      updateWalkers(Math.min(0.2,dt/1000)*SPD[S.speed][1]);
+    }
+    if(dirty||S.speed>0) draw();
+  }catch(err){
+    errCount++;
+    if(errCount<=3) console.error('frame error',err);
+    // ניקוי המצב שהכי סביר שגרם לתקלה, כדי שהפריים הבא יצליח
+    ghost=null; dragTiles=null; ptrs.clear();
+    if(errCount===6) toast('משהו השתבש — המשחק ממשיך לרוץ');
   }
-  if(dirty||S.speed>0) draw();
   requestAnimationFrame(loop);
 }
 
