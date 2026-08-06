@@ -876,6 +876,7 @@ function updateWalkers(dt){
 }
 let walkerTimer=0;
 function drawWalkers(minX,maxX,minY,maxY){
+  if(cam.z<(lowQ?0.9:0.62)) return;   // במבט רחוק הם פחות מפיקסל ועולים זמן יקר
   for(const w of walkers){
     const a=w.p[w.i], b2=w.p[w.i+1];
     if(!a||!b2) continue;
@@ -950,6 +951,12 @@ function resize(){
 }
 window.addEventListener('resize',resize);
 
+/* איכות אדפטיבית: אני לא יכול למדוד את המכשיר של השחקן מראש, אז המשחק
+   מודד את עצמו. אם הפריימים כבדים מדי הוא מוריד פרטים בעצמו במקום לגמגם. */
+let lowQ=false, frameAvg=16;
+const LOD_BASE=0.85;
+function lodZoom(){ return lowQ?1.25:LOD_BASE; }
+function terrainDetail(){ return cam.z>(lowQ?1.3:0.7); }
 function w2s(wx,wy){ return [(wx-cam.x)*cam.z+W/2,(wy-cam.y)*cam.z+H/2]; }
 function s2w(sx,sy){ return [(sx-W/2)/cam.z+cam.x,(sy-H/2)/cam.z+cam.y]; }
 function s2t(sx,sy){
@@ -1077,7 +1084,7 @@ function draw(){
   const maxY=clamp(Math.max(c0[1],c1[1],c2[1],c3[1])+2,0,GRID-1);
 
   // קרקע
-  const t=Date.now()/1000, detail=cam.z>0.7;
+  const t=Date.now()/1000, detail=terrainDetail();
   for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
     const i=idx(x,y), tr=S.terr[i];
     diamond(x,y,1);
@@ -1120,10 +1127,16 @@ function draw(){
 
   // עצים וסלעים
   for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
-    const tr=S.terr[idx(x,y)];
-    if(tr===T_TREE&&!S.occ[idx(x,y)]) drawTree(x,y);
-    else if(tr===T_ROCK) drawRock(x,y);
-    if(S.rubble[idx(x,y)]) drawRubble(x,y);
+    const i=idx(x,y), tr=S.terr[i];
+    if(tr===T_TREE&&!S.occ[i]){
+      if(detail) drawTree(x,y);
+      else { diamond(x,y,1); ctx.fillStyle='#3a5528'; ctx.fill(); }
+    }
+    else if(tr===T_ROCK){
+      if(detail) drawRock(x,y);
+      else { diamond(x,y,1); ctx.fillStyle='#6d685c'; ctx.fill(); }
+    }
+    if(S.rubble[i]) drawRubble(x,y);
   }
 
   // שכבת מידע
@@ -1314,8 +1327,26 @@ function drawRubble(x,y){
   ctx.fillRect(p[0]-8,p[1]-5,7,1.8); ctx.fillRect(p[0]+2,p[1]-3,6,1.8);
 }
 
+/* צבע גג לכל סוג — משמש בציור המרוחק, שבו כל הפרטים ממילא נבלעים */
+const LOD_COL={house:'#a85a3c',temple:'#a3573b',forum:'#c9a94e',theatre:'#d2c5a6',
+  market:'#c1503d',granary:'#c7b28c',baths:'#dcd0b0',doctor:'#4f7d8f',prefect:'#a03a2c',
+  engineer:'#4a5566',well:'#8d8372',fountain:'#bcd6e2',reservoir:'#b9c9d4',aqueduct:'#bcb098',
+  wheat:'#d3b551',veg:'#69a044',fruit:'#5a8a3a',pottery:'#9c4f30',oilpress:'#5f6b34',
+  weaver:'#6a4b74',statue:'#e8e0cc',obelisk:'#e0b165'};
+function shade(hex,f){
+  const n=parseInt(hex.slice(1),16);
+  const r=Math.round(((n>>16)&255)*f), g2=Math.round(((n>>8)&255)*f), b2=Math.round((n&255)*f);
+  return 'rgb('+r+','+g2+','+b2+')';
+}
 function drawB(b){
   const d=B[b.t], x=b.x, y=b.y, s=b.s;
+  // ציור מרוחק: צללית פשוטה במקום עשרות פעולות ציור לכל מבנה
+  if(cam.z<lodZoom() && !d.flat){
+    const col=LOD_COL[b.t]||'#c9b087';
+    const h=d.home?(6+b.level*2.4):(d.s>1?13:9);
+    box(x+0.06,y+0.06,s-0.12,h,col,shade(col,0.68),shade(col,0.85));
+    return;
+  }
   switch(b.t){
     case 'road': drawRoadTile(x,y,false); break;
     case 'plaza': {
@@ -2321,7 +2352,14 @@ function loop(t){
       while(acc>=MONTH_MS){ acc-=MONTH_MS; monthTick(); }
       updateWalkers(Math.min(0.2,dt/1000)*SPD[S.speed][1]);
     }
-    if(dirty||S.speed>0) draw();
+    if(dirty||S.speed>0){
+      const t0=performance.now();
+      draw();
+      // ממוצע נע של זמן הציור, ומעבר לאיכות נמוכה אם המכשיר מתקשה
+      frameAvg=frameAvg*0.92+(performance.now()-t0)*0.08;
+      if(!lowQ&&frameAvg>26){ lowQ=true; }
+      else if(lowQ&&frameAvg<11){ lowQ=false; }
+    }
   }catch(err){
     errCount++;
     if(errCount<=3) console.error('frame error',err);
