@@ -1510,6 +1510,46 @@ function drawRubble(x,y){
    (סכך → רעפים → רעפים עם רכס מוזהב), חומר הקירות (בוץ → טיח → שיש),
    וכמה מהמגרש הבית תופס (בקתה קטנה → אחוזה עם חצר). */
 function hgable(x,y,fx,fy,fw,h,rise,c1,c2,cEnd){ gable(x+fx,y+fy,fw,h,rise,c1,c2,cEnd); }
+/* אוהל בד — מנסרה משולשת מונחת על הקרקע. בעולם איזומטרי משולש שטוח
+   נראה כמו מדבקה; כאן יש שני מדרונות, פאת כניסה וחבלי מתיחה. */
+function tent(gx,gy,w,d,rise,cFar,cNear,cEnd){
+  const A=V(gx,gy),Bp=V(gx+w,gy),C=V(gx+w,gy+d),D=V(gx,gy+d);
+  const R1=[(A[0]+D[0])/2,(A[1]+D[1])/2-rise], R2=[(Bp[0]+C[0])/2,(Bp[1]+C[1])/2-rise];
+  // צל על הקרקע
+  ctx.fillStyle='rgba(28,34,16,0.26)';
+  ctx.beginPath();ctx.moveTo(A[0]+3,A[1]+1.5);ctx.lineTo(Bp[0]+3,Bp[1]+1.5);
+  ctx.lineTo(C[0]+3,C[1]+1.5);ctx.lineTo(D[0]+3,D[1]+1.5);ctx.closePath();ctx.fill();
+  const poly=(pts,c)=>{ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.closePath();ctx.fill();};
+  poly([A,Bp,R2,R1],cFar);          // מדרון אחורי
+  poly([D,C,R2,R1],cNear);          // מדרון קדמי
+  poly([Bp,C,R2],cEnd);             // פאת הכניסה
+  // קפלי הבד
+  ctx.strokeStyle='rgba(120,100,66,0.3)'; ctx.lineWidth=1;
+  for(let k=1;k<=3;k++){ const f=k/4;
+    const a=[D[0]+(C[0]-D[0])*f, D[1]+(C[1]-D[1])*f];
+    const b=[R1[0]+(R2[0]-R1[0])*f, R1[1]+(R2[1]-R1[1])*f];
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  }
+  // פתח הכניסה — משולש כהה שממלא את רוב פאת הקצה
+  const mid=[(Bp[0]+C[0])/2,(Bp[1]+C[1])/2];
+  const halfW=Math.abs(C[0]-Bp[0])/2;
+  ctx.fillStyle='#3b2e1e';
+  ctx.beginPath();ctx.moveTo(mid[0]-halfW*0.52,mid[1]-Math.abs(C[1]-Bp[1])*0.26);
+  ctx.lineTo(mid[0],mid[1]-rise*0.7);
+  ctx.lineTo(mid[0]+halfW*0.52,mid[1]-Math.abs(C[1]-Bp[1])*0.26);
+  ctx.closePath();ctx.fill();
+  // דש הבד המקופל לצד הפתח
+  ctx.fillStyle=cEnd;
+  ctx.beginPath();ctx.moveTo(mid[0]+halfW*0.2,mid[1]-1);
+  ctx.lineTo(mid[0]+halfW*0.5,mid[1]-rise*0.42);
+  ctx.lineTo(mid[0]+halfW*0.62,mid[1]-2);ctx.closePath();ctx.fill();
+  // רכס מואר + קצה מוט
+  ctx.strokeStyle='rgba(255,246,220,0.5)'; ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.moveTo(R1[0],R1[1]);ctx.lineTo(R2[0],R2[1]);ctx.stroke();
+  ctx.strokeStyle='#6b5a3a'; ctx.lineWidth=1.1;
+  ctx.beginPath();ctx.moveTo(R2[0],R2[1]);ctx.lineTo(R2[0]+1.5,R2[1]-3.5);ctx.stroke();
+}
 function drawHouse(b,x,y){
   const lv=b.level, p=V(x+0.5,y+0.5);
   // הקרקע מספרת את הסיפור בעצמה: אדמה חשופה למטה, ריצוף שיש למעלה
@@ -1517,22 +1557,32 @@ function drawHouse(b,x,y){
   ctx.fillStyle=lv<=1?'#78764e':lv<=2?'#8a8060':lv<=4?'#a89a7c':'#cabda0';
   ctx.fill();
 
-  if(lv===0){                       // אוהלי מתיישבים
-    ctx.fillStyle='rgba(24,34,14,0.26)';
-    ctx.beginPath();ctx.ellipse(p[0]+2,p[1]+2,12,5,0,0,6.3);ctx.fill();
-    for(const o of [[-6,3,0.85],[6,-1,1]]){
-      const H=15*o[2], bx=p[0]+o[0], by=p[1]+o[1];
-      ctx.fillStyle='#c2ad7d';
-      ctx.beginPath();ctx.moveTo(bx-8*o[2],by);ctx.lineTo(bx,by-H);ctx.lineTo(bx+8*o[2],by);ctx.closePath();ctx.fill();
-      ctx.fillStyle='#93805a';
-      ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx,by-H);ctx.lineTo(bx+8*o[2],by);ctx.closePath();ctx.fill();
-      ctx.strokeStyle='#6b5a3a';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(bx,by-H);ctx.lineTo(bx+2,by-H-3.5);ctx.stroke();
-      ctx.fillStyle='#4a3a26';
-      ctx.beginPath();ctx.moveTo(bx-2.4*o[2],by);ctx.lineTo(bx,by-H*0.5);ctx.lineTo(bx+2.4*o[2],by);ctx.closePath();ctx.fill();
+  if(lv===0){                       // מחנה מתיישבים
+    // אדמה כבושה עם אבנים וסימני דריכה
+    ctx.fillStyle='rgba(92,78,52,0.3)';
+    ctx.beginPath();ctx.ellipse(p[0],p[1]-2,17,8,0,0,6.3);ctx.fill();
+    for(let k=0;k<3;k++){
+      const n=noise(x*5+k,y*5,S.seed);
+      ctx.fillStyle='#8d8371';
+      ctx.beginPath();ctx.ellipse(p[0]-14+n*28,p[1]+2-n*6,2.2,1.2,0,0,6.3);ctx.fill();
     }
-    ctx.fillStyle='#5a4a34';ctx.beginPath();ctx.ellipse(p[0]-1,p[1]-4,3.4,1.7,0,0,6.3);ctx.fill();
-    ctx.fillStyle='#c9702f';ctx.beginPath();ctx.ellipse(p[0]-1,p[1]-5,2,1,0,0,6.3);ctx.fill();
+    // אוהל רומי קלאסי: ארוך, נמוך, מדרון מוצל מול מדרון מואר
+    tent(x+0.06,y+0.1,0.6,0.3,11,'#9d8b67','#ded0ab','#bfae89');
+    tent(x+0.5,y+0.58,0.44,0.26,9,'#93825f','#d4c6a1','#b5a480');
+    // מדורה בפינה הפנויה
+    const f=V(x+0.22,y+0.72);
+    ctx.fillStyle='#6b5c44';
+    ctx.beginPath();ctx.ellipse(f[0],f[1],5.5,2.7,0,0,6.3);ctx.fill();
+    ctx.fillStyle='#4a3d2c';
+    for(let k=0;k<4;k++){ const a=k*1.6;
+      ctx.fillRect(f[0]+Math.cos(a)*3.4-1.6,f[1]+Math.sin(a)*1.7-0.7,3.2,1.4); }
+    const fl=Math.sin(Date.now()/220+x*3)*0.5+0.5;
+    ctx.fillStyle='#d8752c';
+    ctx.beginPath();ctx.moveTo(f[0]-2.6,f[1]-1);ctx.quadraticCurveTo(f[0],f[1]-8-fl*3,f[0]+2.6,f[1]-1);
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle='#f2c14a';
+    ctx.beginPath();ctx.moveTo(f[0]-1.3,f[1]-1);ctx.quadraticCurveTo(f[0],f[1]-5-fl*2,f[0]+1.3,f[1]-1);
+    ctx.closePath();ctx.fill();
   }
   else if(lv===1){                  // בקתה עגולה עם גג סכך חרוטי
     shadow(x,y,1,12);
