@@ -937,6 +937,14 @@ function roamPath(sx,sy,len){
   }
   return path;
 }
+function newWalker(path,kind){
+  return {p:path,i:0,t:Math.random()*0.3,kind,
+    sp:0.5+Math.random()*0.45,
+    lane:(Math.random()<0.5?-1:1)*(0.13+Math.random()*0.1),  // נתיב הליכה בצד הכביש
+    scale:0.9+Math.random()*0.22,                            // גובה מעט שונה לכל אחד
+    fade:0,                                                  // הופעה והיעלמות רכות
+    life:path.length*1.9+2};
+}
 function spawnWalker(b,kind){
   if(walkers.length>70) return;
   let start=null;
@@ -944,8 +952,25 @@ function spawnWalker(b,kind){
   if(!start) return;
   const path=roamPath(start[0],start[1],8+((Math.random()*8)|0));
   if(path.length<2) return;
-  walkers.push({p:path,i:0,t:Math.random()*0.3,kind,sp:0.55+Math.random()*0.35,
-    life:path.length*1.9+2});
+  walkers.push(newWalker(path,kind));
+}
+/* מיקום חלק לאורך המסלול: עקומה ריבועית שעוברת דרך מרכזי האריחים
+   במקום קו שבור. בלי זה ההולכים "מקפיצים" זווית חדה בכל פנייה. */
+function walkerPos(w){
+  const p=w.p, i=w.i, t=w.t;
+  const cur=p[i], nxt=p[i+1];
+  if(!cur||!nxt) return null;
+  const prev=p[i-1]||cur;
+  const P0=[(prev[0]+cur[0])/2+0.5,(prev[1]+cur[1])/2+0.5];
+  const P1=[cur[0]+0.5,cur[1]+0.5];
+  const P2=[(cur[0]+nxt[0])/2+0.5,(cur[1]+nxt[1])/2+0.5];
+  const u=1-t, a=u*u, b=2*u*t, c=t*t;
+  const gx=a*P0[0]+b*P1[0]+c*P2[0];
+  const gy=a*P0[1]+b*P1[1]+c*P2[1];
+  // כיוון ההליכה, לצורך הסטה לצד הכביש
+  const dx=P2[0]-P0[0], dy=P2[1]-P0[1];
+  const len=Math.hypot(dx,dy)||1;
+  return [gx+(-dy/len)*w.lane, gy+(dx/len)*w.lane, dx, dy];
 }
 function updateWalkers(dt){
   // תחזוקת אוכלוסייה של הולכי רגל
@@ -965,8 +990,7 @@ function updateWalkers(dt){
         // חלק מהאנשים נכנסים לעיר דרך שער הדרך הקיסרית
         if(Math.random()<0.18){
           const path=roamPath(S.entry[0],S.entry[1],16);
-          if(path.length>1) walkers.push({p:path,i:0,t:0,kind:'home',
-            sp:0.6+Math.random()*0.3,life:path.length*1.9+2});
+          if(path.length>1) walkers.push(newWalker(path,'home'));
           continue;
         }
         const c=cands[(Math.random()*cands.length)|0];
@@ -982,49 +1006,64 @@ function updateWalkers(dt){
     if(w.i>=w.p.length-1||w.life<=0){ walkers.splice(i,1); continue; }
     // הכביש נהרס מתחת לרגליו — אל תשאיר אותו צועד על הדשא
     const n=w.p[w.i+1];
-    if(!isRoadT(n[0],n[1])) walkers.splice(i,1);
+    if(!isRoadT(n[0],n[1])){ walkers.splice(i,1); continue; }
+    // דהייה בהופעה ובסוף החיים, במקום להבהב לתוך הקיום
+    const near=Math.min(w.life,(w.p.length-1-w.i));
+    w.fade=Math.min(1,Math.min(w.fade+dt*2.5,near<1.2?near/1.2:1));
   }
 }
 let walkerTimer=0;
 function drawWalkers(minX,maxX,minY,maxY){
   if(cam.z<(lowQ?0.9:0.62)) return;   // במבט רחוק הם פחות מפיקסל ועולים זמן יקר
   for(const w of walkers){
-    const a=w.p[w.i], b2=w.p[w.i+1];
-    if(!a||!b2) continue;
-    const gx=a[0]+(b2[0]-a[0])*w.t+0.5, gy=a[1]+(b2[1]-a[1])*w.t+0.5;
+    const q=walkerPos(w);
+    if(!q) continue;
+    const gx=q[0], gy=q[1];
     if(gx<minX-1||gx>maxX+2||gy<minY-1||gy>maxY+2) continue;
     const p=V(gx,gy), st=WALK_TYPES[w.kind]||WALK_TYPES.home;
-    const bob=Math.abs(Math.sin(w.t*Math.PI*2))*1.3;
+    const sc=w.scale, phase=(w.i+w.t)*Math.PI*2;
+    const bob=Math.abs(Math.sin(phase))*1.3*sc;
+    // הליכה לכיוון ימין או שמאל על המסך — קובעת לאן הדמות פונה
+    const faceR=(q[2]-q[3])>=0 ? 1 : -1;
+    const al=w.fade;
+    if(al<=0) continue;
+    ctx.globalAlpha=al;
     ctx.fillStyle='rgba(20,28,12,0.32)';
-    ctx.beginPath();ctx.ellipse(p[0],p[1],4,2,0,0,6.3);ctx.fill();
-    // רגליים
+    ctx.beginPath();ctx.ellipse(p[0],p[1],4*sc,2*sc,0,0,6.3);ctx.fill();
+    const H=v=>p[1]-v*sc-bob;
+    // רגליים מתחלפות
+    const sw=Math.sin(phase)*1.7*sc;
     ctx.fillStyle='#6b543a';
-    const sw=Math.sin(w.t*Math.PI*2)*1.6;
-    ctx.fillRect(p[0]-2+sw*0.4,p[1]-3.4-bob,1.5,3.4);
-    ctx.fillRect(p[0]+0.6-sw*0.4,p[1]-3.4-bob,1.5,3.4);
-    // גוף (טוגה)
+    ctx.fillRect(p[0]-2*sc+sw*0.4,H(3.4),1.5*sc,3.4*sc);
+    ctx.fillRect(p[0]+0.6*sc-sw*0.4,H(3.4),1.5*sc,3.4*sc);
+    // גוף (טוגה) — צר למעלה, מתרחב למטה
     ctx.fillStyle=st.body;
     ctx.beginPath();
-    ctx.moveTo(p[0]-3,p[1]-2.8-bob);
-    ctx.lineTo(p[0]+3,p[1]-2.8-bob);
-    ctx.lineTo(p[0]+2,p[1]-9.4-bob);
-    ctx.lineTo(p[0]-2,p[1]-9.4-bob);
+    ctx.moveTo(p[0]-3*sc,H(2.8));ctx.lineTo(p[0]+3*sc,H(2.8));
+    ctx.lineTo(p[0]+2*sc,H(9.4));ctx.lineTo(p[0]-2*sc,H(9.4));
     ctx.closePath();ctx.fill();
-    ctx.fillStyle='rgba(0,0,0,0.14)';
+    // הצד המרוחק מהאור מוצל
+    ctx.fillStyle='rgba(0,0,0,0.15)';
     ctx.beginPath();
-    ctx.moveTo(p[0]+0.6,p[1]-2.8-bob);ctx.lineTo(p[0]+3,p[1]-2.8-bob);
-    ctx.lineTo(p[0]+2,p[1]-9.4-bob);ctx.lineTo(p[0]+0.6,p[1]-9.4-bob);
+    ctx.moveTo(p[0]+0.6*sc*faceR,H(2.8));ctx.lineTo(p[0]+3*sc*faceR,H(2.8));
+    ctx.lineTo(p[0]+2*sc*faceR,H(9.4));ctx.lineTo(p[0]+0.6*sc*faceR,H(9.4));
     ctx.closePath();ctx.fill();
-    // ראש
+    // זרוע מתנדנדת
+    ctx.fillStyle=st.body;
+    ctx.fillRect(p[0]+(1.9*sc)*faceR,H(8.4)+Math.sin(phase+3.1)*1.2*sc,1.3*sc,4.6*sc);
+    // ראש עם שיער וכיוון מבט
     ctx.fillStyle=st.head;
-    ctx.beginPath();ctx.arc(p[0],p[1]-11.2-bob,2.3,0,6.3);ctx.fill();
+    ctx.beginPath();ctx.arc(p[0]+0.4*sc*faceR,H(11.2),2.3*sc,0,6.3);ctx.fill();
     ctx.fillStyle='#3d2a1c';
-    ctx.beginPath();ctx.arc(p[0],p[1]-12.1-bob,2.3,3.34,6.28);ctx.fill();
+    ctx.beginPath();ctx.arc(p[0]+0.4*sc*faceR,H(12.1),2.3*sc,3.34,6.28);ctx.fill();
     if(st.hat){ ctx.fillStyle=st.hat;
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-12.8-bob,3.1,1.3,0,0,6.3);ctx.fill(); }
-    if(w.kind==='cart'){ ctx.fillStyle='#a3783f';
-      ctx.fillRect(p[0]+3.2,p[1]-7.5-bob,5,5);
-      ctx.fillStyle='#7c5a30'; ctx.fillRect(p[0]+3.2,p[1]-7.5-bob,5,1.4); }
+      ctx.beginPath();ctx.ellipse(p[0]+0.4*sc*faceR,H(12.8),3.1*sc,1.3*sc,0,0,6.3);ctx.fill(); }
+    if(w.kind==='cart'){          // סבל עם ארגז על הכתף
+      ctx.fillStyle='#a3783f';
+      ctx.fillRect(p[0]+2.9*sc*faceR,H(11.5),5*sc,4.4*sc);
+      ctx.fillStyle='#7c5a30'; ctx.fillRect(p[0]+2.9*sc*faceR,H(11.5),5*sc,1.3*sc);
+    }
+    ctx.globalAlpha=1;
   }
 }
 
@@ -2098,20 +2137,70 @@ function drawB(b){
       break;
     }
     case 'doctor': {
-      box(x+0.1,y+0.1,0.8,11,'#dfd6bd','#a79d84','#c9bfa4');
-      roof(x+0.04,y+0.04,0.92,11,6,'#4f7d8f','#5f93a6');
+      shadow(x,y,1,14);
+      diamond(x,y,1); ctx.fillStyle='#a99d84'; ctx.fill();
+      box(x+0.08,y+0.08,0.66,13,'#e7ddc4','#a89e85','#cfc5a9');
+      gable(x+0.04,y+0.04,0.74,13.5,6,'#3f6f80','#4d8496','#dcd2b8');
       const p=V(x+0.5,y+0.5);
-      ctx.fillStyle='#3f6d4f';ctx.fillRect(p[0]-1.6,p[1]-24,3.2,9);ctx.fillRect(p[0]-4.4,p[1]-21,9,3.2);
+      // שלט תלוי עם עלי מרפא
+      ctx.strokeStyle='#7a6a4a'; ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.moveTo(p[0]+9,p[1]-17);ctx.lineTo(p[0]+15,p[1]-17);ctx.stroke();
+      ctx.fillStyle='#e8e0c8'; ctx.fillRect(p[0]+11,p[1]-17,7,6);
+      ctx.fillStyle='#3f7d52';
+      ctx.beginPath();ctx.ellipse(p[0]+14.5,p[1]-14,2.4,1.2,-0.5,0,6.3);ctx.fill();
+      // כדי מרפא בכניסה
+      ctx.fillStyle='#8a9c6a';
+      ctx.beginPath();ctx.ellipse(p[0]-8,p[1]-2,2.6,3.2,0,0,6.3);ctx.fill();
+      ctx.beginPath();ctx.ellipse(p[0]-3,p[1],2.2,2.8,0,0,6.3);ctx.fill();
+      ctx.fillStyle='#4b3826'; ctx.fillRect(p[0]-2,p[1]-12,4,6);
       if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
-    case 'prefect': case 'engineer': {
-      const c=b.t==='prefect'?['#d9b9a2','#a68a76','#c4a58f']:['#c8cbd4','#969aa4','#b3b7c1'];
-      box(x+0.1,y+0.1,0.8,12,c[0],c[1],c[2]);
-      roof(x+0.04,y+0.04,0.92,12,6,b.t==='prefect'?'#a03a2c':'#4a5566',b.t==='prefect'?'#bf4b39':'#5b687b');
+    case 'prefect': {
+      shadow(x,y,1,15);
+      diamond(x,y,1); ctx.fillStyle='#a2957c'; ctx.fill();
+      box(x+0.08,y+0.08,0.68,14,'#dcc6b0','#a08a76','#c4ae97');
+      gable(x+0.04,y+0.04,0.76,14.5,6.5,'#9c3628','#bb4634','#e6d6c2');
       const p=V(x+0.5,y+0.5);
-      ctx.font='11px sans-serif';ctx.textAlign='center';
-      ctx.fillText(b.t==='prefect'?'🔥':'🔨',p[0],p[1]-14);
+      // פתח מקומר
+      ctx.fillStyle='#3d2c1e';
+      ctx.beginPath();ctx.moveTo(p[0]-3,p[1]-6);ctx.lineTo(p[0]-3,p[1]-11);
+      ctx.quadraticCurveTo(p[0],p[1]-15,p[0]+3,p[1]-11);ctx.lineTo(p[0]+3,p[1]-6);ctx.closePath();ctx.fill();
+      // דגל המשמר על תורן
+      ctx.fillStyle='#7a6a4a'; ctx.fillRect(p[0]+10,p[1]-30,1.4,17);
+      ctx.fillStyle='#b03c2c';
+      ctx.beginPath();ctx.moveTo(p[0]+11.4,p[1]-30);ctx.lineTo(p[0]+19,p[1]-27.5);
+      ctx.lineTo(p[0]+11.4,p[1]-24);ctx.closePath();ctx.fill();
+      // דליי כיבוי ליד הכניסה
+      for(const o of [-9,-5.5]){
+        ctx.fillStyle='#6f5c3e';
+        ctx.beginPath();ctx.moveTo(p[0]+o-1.8,p[1]-4);ctx.lineTo(p[0]+o+1.8,p[1]-4);
+        ctx.lineTo(p[0]+o+1.3,p[1]);ctx.lineTo(p[0]+o-1.3,p[1]);ctx.closePath();ctx.fill();
+        ctx.strokeStyle='#8d7a58';ctx.lineWidth=0.9;
+        ctx.beginPath();ctx.arc(p[0]+o,p[1]-4,1.8,3.14,6.28);ctx.stroke();
+      }
+      if(b.noRoad) warn(x,y,s,'🚧');
+      break;
+    }
+    case 'engineer': {
+      shadow(x,y,1,13);
+      diamond(x,y,1); ctx.fillStyle='#9d968a'; ctx.fill();
+      box(x+0.08,y+0.08,0.6,12,'#cfd2d9','#989ba4','#b8bcc4');
+      gable(x+0.04,y+0.04,0.68,12.5,5.5,'#48525f','#5a6673','#d6dae1');
+      const p=V(x+0.5,y+0.5);
+      // פיגום עץ מהצד
+      ctx.strokeStyle='#8a7048'; ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(p[0]+7,p[1]-2);ctx.lineTo(p[0]+7,p[1]-20);
+      ctx.moveTo(p[0]+14,p[1]-1);ctx.lineTo(p[0]+14,p[1]-16);
+      ctx.moveTo(p[0]+6,p[1]-14);ctx.lineTo(p[0]+15,p[1]-11);
+      ctx.moveTo(p[0]+6,p[1]-8);ctx.lineTo(p[0]+15,p[1]-5);
+      ctx.stroke();
+      // ערימת אבני בנייה
+      ctx.fillStyle='#b3ab9c'; ctx.fillRect(p[0]-13,p[1]-6,6,3);
+      ctx.fillRect(p[0]-12,p[1]-9,6,3);
+      ctx.fillStyle='#c6bfb1'; ctx.fillRect(p[0]-11,p[1]-12,6,3);
+      ctx.fillStyle='#4b3826'; ctx.fillRect(p[0]-2,p[1]-11,4,5);
       if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
