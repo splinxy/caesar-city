@@ -1307,6 +1307,30 @@ function gableR(x,y,w,d,h,rise,cTop,cSide,cEnd){
     ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
   }
 }
+/* גליל — הבסיס למבנים עגולים: מדרגות התיאטרון, מאגר המים, כיפות */
+function cylinder(cx,cy,rx,ry,h,cSide,cTop){
+  ctx.fillStyle=cSide;
+  ctx.beginPath();
+  ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI);
+  ctx.lineTo(cx+rx,cy-h);
+  ctx.ellipse(cx,cy-h,rx,ry,0,0,Math.PI,true);
+  ctx.closePath();ctx.fill();
+  if(cTop){ ctx.fillStyle=cTop;
+    ctx.beginPath();ctx.ellipse(cx,cy-h,rx,ry,0,0,6.3);ctx.fill(); }
+}
+/* כיפה */
+function dome(cx,cy,rx,ry,h,cLight,cDark){
+  ctx.fillStyle=cDark;
+  ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,3.14,6.28);ctx.fill();
+  ctx.fillStyle=cLight;
+  ctx.beginPath();ctx.moveTo(cx-rx,cy);
+  ctx.bezierCurveTo(cx-rx,cy-h,cx+rx,cy-h,cx+rx,cy);
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle=cDark;
+  ctx.beginPath();ctx.moveTo(cx+rx*0.25,cy);
+  ctx.bezierCurveTo(cx+rx*0.35,cy-h*0.85,cx+rx*0.9,cy-h*0.45,cx+rx,cy);
+  ctx.closePath();ctx.fill();
+}
 /* לוח אופקי (כרכוב) — קירות רק בין שני גבהים, כדי לא להסתיר עמודים */
 function slab(x,y,s,y0,th,cTop,cL,cR){
   // תמיכה גם בבסיס מלבני: slab(x,y,w,d,y0,th,...)
@@ -1876,20 +1900,56 @@ function drawB(b){
       break;
     }
     case 'reservoir': {
-      box(x,y,s,14,'#c6bba4','#8d8372','#aaa08b');
+      shadow(x,y,s,18);
+      box(x,y,s,13,'#bdb29b','#8a8070','#a69c87');
+      // נדבכי אבן
+      ctx.strokeStyle='rgba(90,80,64,0.3)'; ctx.lineWidth=1;
+      const dl=V(x,y+s), cl=V(x+s,y+s), br=V(x+s,y);
+      for(let k=1;k<=2;k++){ const h=13*k/3;
+        ctx.beginPath();ctx.moveTo(dl[0],dl[1]-h);ctx.lineTo(cl[0],cl[1]-h);
+        ctx.lineTo(br[0],br[1]-h);ctx.stroke(); }
       const p=V(x+s/2,y+s/2);
-      ctx.fillStyle=b.water?'#3f9ac9':'#5c5449';
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-16,20,10,0,0,6.3);ctx.fill();
-      ctx.strokeStyle='#ded3ba';ctx.lineWidth=3;ctx.stroke();
+      // אגן פנימי עם שפה מוגבהת
+      cylinder(p[0],p[1]-13,s*HW*0.72,s*HH*0.72,5,'#d3c8b0','#c2b79f');
+      ctx.fillStyle=b.water?'#3891bf':'#5c5449';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-18.5,s*HW*0.6,s*HH*0.6,0,0,6.3);ctx.fill();
+      if(b.water){
+        ctx.fillStyle='rgba(150,215,242,0.4)';
+        const t2=Date.now()/900;
+        ctx.beginPath();ctx.ellipse(p[0]-4,p[1]-19+Math.sin(t2)*1.2,s*HW*0.3,s*HH*0.22,0,0,6.3);ctx.fill();
+      }
+      // מוצא מים לצד
+      ctx.fillStyle='#a99e88';
+      const o=V(x+s,y+s*0.5);
+      ctx.fillRect(o[0]-3,o[1]-16,7,5);
       break;
     }
     case 'well': {
-      diamond(x,y,1); ctx.fillStyle='#7d8a5e'; ctx.fill();
+      diamond(x,y,1); ctx.fillStyle='#8a8f68'; ctx.fill();
       const p=V(x+0.5,y+0.5);
-      ctx.fillStyle='#8d8372';ctx.beginPath();ctx.ellipse(p[0],p[1]-4,9,5,0,0,6.3);ctx.fill();
-      ctx.fillStyle='#2b4d63';ctx.beginPath();ctx.ellipse(p[0],p[1]-5,6,3.2,0,0,6.3);ctx.fill();
-      ctx.strokeStyle='#5b4a35';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(p[0]-7,p[1]-6);ctx.lineTo(p[0]-7,p[1]-17);ctx.lineTo(p[0]+7,p[1]-17);ctx.lineTo(p[0]+7,p[1]-6);ctx.stroke();
+      ctx.fillStyle='rgba(30,36,18,0.25)';
+      ctx.beginPath();ctx.ellipse(p[0]+2,p[1]-1,11,5,0,0,6.3);ctx.fill();
+      // טבעת אבן בנויה נדבכים
+      cylinder(p[0],p[1]-1,10,5,7,'#9d9382','#bab09b');
+      ctx.strokeStyle='rgba(80,72,58,0.4)'; ctx.lineWidth=1;
+      for(let k=0;k<5;k++){ const a=-0.2+k*0.72;
+        ctx.beginPath();ctx.moveTo(p[0]+Math.cos(a)*10,p[1]-1+Math.sin(a)*5);
+        ctx.lineTo(p[0]+Math.cos(a)*10,p[1]-8+Math.sin(a)*5);ctx.stroke(); }
+      ctx.fillStyle='#20384a';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-8,7,3.5,0,0,6.3);ctx.fill();
+      ctx.fillStyle='#2f5f78';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]-7.4,5,2.4,0,0,6.3);ctx.fill();
+      // מתקן דלי מעץ
+      ctx.strokeStyle='#6b5a3a';ctx.lineWidth=2.2;
+      ctx.beginPath();ctx.moveTo(p[0]-8,p[1]-8);ctx.lineTo(p[0]-8,p[1]-20);
+      ctx.lineTo(p[0]+8,p[1]-20);ctx.lineTo(p[0]+8,p[1]-8);ctx.stroke();
+      ctx.strokeStyle='#8a7450';ctx.lineWidth=1.6;
+      ctx.beginPath();ctx.moveTo(p[0]-8,p[1]-20.5);ctx.lineTo(p[0]+8,p[1]-20.5);ctx.stroke();
+      ctx.strokeStyle='#5f5040';ctx.lineWidth=0.8;
+      ctx.beginPath();ctx.moveTo(p[0]+1,p[1]-20);ctx.lineTo(p[0]+1,p[1]-13);ctx.stroke();
+      ctx.fillStyle='#7a5f3c';
+      ctx.beginPath();ctx.moveTo(p[0]-1.8,p[1]-13);ctx.lineTo(p[0]+3.8,p[1]-13);
+      ctx.lineTo(p[0]+3,p[1]-9.5);ctx.lineTo(p[0]-1,p[1]-9.5);ctx.closePath();ctx.fill();
       break;
     }
     case 'fountain': {
@@ -2095,44 +2155,72 @@ function drawB(b){
       break;
     }
     case 'theatre': {
-      shadow(x,y,s,16);
-      const p=V(x+s/2,y+s/2), rx=s*HW*0.94, ry=s*HH*0.94;
-      // קיר חיצוני
-      ctx.fillStyle='#c4b797';
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-9,rx,ry,0,0,6.3);ctx.fill();
-      ctx.fillStyle='#ded3b6';
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-14,rx,ry,0,0,6.3);ctx.fill();
-      // מדרגות הישיבה
-      for(let k=1;k<=4;k++){
-        const f=1-k*0.19;
-        ctx.fillStyle=k%2?'#cdc0a1':'#d9cdb0';
-        ctx.beginPath();ctx.ellipse(p[0],p[1]-14+k*1.2,rx*f,ry*f,0,0,6.3);ctx.fill();
+      shadow(x,y,s,20);
+      const p=V(x+s/2,y+s/2), rx=s*HW*0.9, ry=s*HH*0.9;
+      const cy=p[1]+ry*0.35;
+      // בניין הבמה מאחור — מצויר ראשון כדי שהמדרגות יסתירו את בסיסו
+      boxR(x+0.18,y+0.04,s-0.36,0.26,24,'#e4d8bb','#ab9f83','#cfc3a4');
+      gableR(x+0.14,y+0.01,s-0.28,0.32,24.5,7,'#8f4a33','#a85a3c','#f0e5cc');
+      for(let k=0;k<4;k++) column(x+0.28+k*(s-0.56)/3,y+0.3,0,20,3.4);
+      slab(x+0.16,y+0.26,s-0.32,0.1,20,2.6,'#f4ecd6','#c0b394','#e0d4b6');
+      // מבנה הצופים — טבעות מדורגות שיוצרות קערה
+      const rings=[[1,15],[0.84,12],[0.68,9],[0.52,6.5]];
+      for(let k=0;k<rings.length;k++){
+        const f=rings[k][0], h=rings[k][1];
+        cylinder(p[0],cy,rx*f,ry*f,h,k?'#c3b696':'#b3a684',k%2?'#e0d5b8':'#d6cbae');
+        // קווי המושבים
+        ctx.strokeStyle='rgba(120,104,72,0.35)'; ctx.lineWidth=1;
+        ctx.beginPath();ctx.ellipse(p[0],cy-h,rx*f*0.93,ry*f*0.93,0,0,6.3);ctx.stroke();
       }
-      // אורקסטרה ובמה
+      // אורקסטרה — הרצפה בתחתית הקערה
       ctx.fillStyle='#a89a7a';
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-9,rx*0.24,ry*0.24,0,0,6.3);ctx.fill();
-      ctx.fillStyle='#8f4a33'; ctx.fillRect(p[0]-rx*0.42,p[1]-24,rx*0.84,7);
-      ctx.fillStyle='#efe4cb';
-      for(let k=0;k<4;k++) ctx.fillRect(p[0]-rx*0.36+k*rx*0.24,p[1]-24,2.4,7);
-      ctx.fillStyle='#c9a94e'; ctx.fillRect(p[0]-rx*0.42,p[1]-26,rx*0.84,2.4);
+      ctx.beginPath();ctx.ellipse(p[0],cy-6.5,rx*0.38,ry*0.38,0,0,6.3);ctx.fill();
+      ctx.strokeStyle='rgba(255,248,224,0.35)';ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.ellipse(p[0],cy-6.5,rx*0.26,ry*0.26,0,0,6.3);ctx.stroke();
+      // מדרגות כניסה בחזית
+      ctx.fillStyle='#cdc0a1';
+      const st1=V(x+s/2-0.12,y+s-0.02), st2=V(x+s/2+0.12,y+s-0.02);
+      ctx.fillRect(Math.min(st1[0],st2[0]),st1[1]-14,Math.abs(st2[0]-st1[0]),14);
       if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
     case 'baths': {
-      shadow(x,y,s,18);
+      shadow(x,y,s,22);
       podium(x,y,s,5,'#ded2b2','#a89a7c','#cbbd9c');
       const p=V(x+s/2,y+s/2);
-      // בריכה פתוחה
-      ctx.fillStyle='#b9ab8b';
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-7,s*HW*0.5,s*HH*0.5,0,0,6.3);ctx.fill();
-      ctx.fillStyle=b.water?'#4aa6d4':'#6f675a';
-      ctx.beginPath();ctx.ellipse(p[0],p[1]-8,s*HW*0.4,s*HH*0.4,0,0,6.3);ctx.fill();
-      if(b.water){ ctx.strokeStyle='rgba(230,246,252,0.5)';ctx.lineWidth=1.4;
-        ctx.beginPath();ctx.ellipse(p[0],p[1]-8,s*HW*0.28,s*HH*0.28,0,0,6.3);ctx.stroke(); }
-      // אגף מקורה מאחור
-      box(x+0.08,y+0.08,s*0.42,16,'#e7dcbe','#ada084','#d0c4a5');
-      gable(x+0.05,y+0.05,s*0.46,17,6,'#8e5a3c','#a86a45','#efe4cb');
-      colonnade(x+0.06,y+0.06,s-0.12,5,12,2,3.4);
+      // האגף המקורה מאחור, עם כיפה — הסימן המובהק של בית מרחץ רומי
+      boxR(x+0.1,y+0.08,s-0.2,0.62,19,'#eee2c4','#b0a386','#d4c8a8');
+      const dc=V(x+s/2,y+0.4);
+      dome(dc[0],dc[1]-19,s*HW*0.3,s*HH*0.3,15,'#dcd0b2','#b3a68a');
+      ctx.fillStyle='#c9a94e';
+      ctx.beginPath();ctx.arc(dc[0],dc[1]-33,2.2,0,6.3);ctx.fill();
+      // חלונות קשת באגף
+      ctx.fillStyle='rgba(70,54,36,0.6)';
+      for(let k=0;k<3;k++){ const q=V(x+0.28+k*0.44,y+0.7);
+        ctx.beginPath();ctx.moveTo(q[0]-2.6,q[1]-8);ctx.lineTo(q[0]-2.6,q[1]-13);
+        ctx.quadraticCurveTo(q[0],q[1]-17,q[0]+2.6,q[1]-13);ctx.lineTo(q[0]+2.6,q[1]-8);
+        ctx.closePath();ctx.fill(); }
+      // חצר הבריכה מלפנים, עם שוליים מדורגים
+      const pc=V(x+s/2,y+s-0.32);
+      ctx.fillStyle='#cfc3a4';
+      ctx.beginPath();ctx.ellipse(pc[0],pc[1]-4,s*HW*0.42,s*HH*0.42,0,0,6.3);ctx.fill();
+      ctx.fillStyle='#b6aa8c';
+      ctx.beginPath();ctx.ellipse(pc[0],pc[1]-5.6,s*HW*0.34,s*HH*0.34,0,0,6.3);ctx.fill();
+      ctx.fillStyle=b.water?'#3f9ac9':'#6f675a';
+      ctx.beginPath();ctx.ellipse(pc[0],pc[1]-6.4,s*HW*0.27,s*HH*0.27,0,0,6.3);ctx.fill();
+      if(b.water){
+        const t2=Date.now()/700;
+        ctx.strokeStyle='rgba(235,250,255,0.45)';ctx.lineWidth=1.2;
+        for(let k=1;k<=2;k++){
+          const f=((t2+k*0.5)%1);
+          ctx.globalAlpha=1-f;
+          ctx.beginPath();ctx.ellipse(pc[0],pc[1]-6.4,s*HW*0.27*f,s*HH*0.27*f,0,0,6.3);ctx.stroke();
+        }
+        ctx.globalAlpha=1;
+      }
+      // אכסדרה שנושאת כרכוב אמיתי לאורך החזית
+      for(let k=0;k<4;k++) column(x+0.14+k*(s-0.28)/3,y+s-0.03,5,14,3.6);
+      slab(x+0.08,y+s-0.16,s-0.16,0.14,19,2.6,'#f7efd9','#c4b797','#e2d7b8');
       if(b.noWater) warn(x,y,s,'💧'); else if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
@@ -2220,13 +2308,38 @@ function drawB(b){
       break;
     }
     case 'statue': {
-      diamond(x,y,1);ctx.fillStyle='#c6bba4';ctx.fill();
+      diamond(x,y,1);ctx.fillStyle='#cfc4ac';ctx.fill();
+      ctx.strokeStyle='rgba(150,138,112,0.5)';ctx.lineWidth=1;ctx.stroke();
       const p=V(x+0.5,y+0.5);
-      ctx.fillStyle='#b0a68e';ctx.fillRect(p[0]-7,p[1]-10,14,8);
-      ctx.fillStyle='#e8e0cc';
-      ctx.fillRect(p[0]-3,p[1]-26,6,17);
-      ctx.beginPath();ctx.arc(p[0],p[1]-28,3.6,0,6.3);ctx.fill();
-      ctx.fillRect(p[0]+2,p[1]-25,7,2.6);
+      ctx.fillStyle='rgba(30,26,16,0.24)';
+      ctx.beginPath();ctx.ellipse(p[0]+3,p[1]-1,11,5,0,0,6.3);ctx.fill();
+      // כן מדורג
+      box(x+0.26,y+0.26,0.48,4,'#cdc2a8','#9a907c','#b8ae96');
+      box(x+0.32,y+0.32,0.36,11,'#e0d6bd','#a89e88','#cbc1a8');
+      ctx.fillStyle='#c9a94e';                       // לוח הקדשה
+      const pl=V(x+0.5,y+0.68);
+      ctx.fillRect(pl[0]-5,pl[1]-9,10,3.4);
+      // הפסל עצמו — טוגה, זרוע מונפת וזר
+      ctx.fillStyle='#f0e9d6';
+      ctx.beginPath();
+      ctx.moveTo(p[0]-4.2,p[1]-15);
+      ctx.quadraticCurveTo(p[0]-3,p[1]-27,p[0]-1.6,p[1]-31);
+      ctx.lineTo(p[0]+2.2,p[1]-31);
+      ctx.quadraticCurveTo(p[0]+3.6,p[1]-26,p[0]+4.6,p[1]-15);
+      ctx.closePath();ctx.fill();
+      ctx.fillStyle='#d8cfb6';                       // קפלי הטוגה בצל
+      ctx.beginPath();
+      ctx.moveTo(p[0]+0.6,p[1]-15);ctx.quadraticCurveTo(p[0]+2.4,p[1]-26,p[0]+2.2,p[1]-31);
+      ctx.lineTo(p[0]+2.2,p[1]-31);
+      ctx.quadraticCurveTo(p[0]+3.6,p[1]-26,p[0]+4.6,p[1]-15);
+      ctx.closePath();ctx.fill();
+      ctx.fillStyle='#f4eddc';
+      ctx.beginPath();ctx.arc(p[0]+0.3,p[1]-34,3.2,0,6.3);ctx.fill();
+      ctx.fillStyle='#e8e0cc';                       // זרוע מונפת
+      ctx.beginPath();ctx.moveTo(p[0]+2.6,p[1]-29);ctx.lineTo(p[0]+8.5,p[1]-36);
+      ctx.lineTo(p[0]+9.8,p[1]-34.4);ctx.lineTo(p[0]+3.8,p[1]-27.4);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#7f9a4a';ctx.lineWidth=1.6;   // זר דפנה
+      ctx.beginPath();ctx.arc(p[0]+0.3,p[1]-35.4,3.4,3.3,6.1);ctx.stroke();
       break;
     }
     case 'obelisk': {
