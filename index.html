@@ -63,12 +63,17 @@
   .cat{white-space:nowrap;background:#ffffff12;border:1px solid #ffffff18;border-radius:20px;padding:8px 13px;font-size:13px;font-weight:600}
   .cat.on{background:var(--gold);color:#20180f;border-color:#ffe9a8}
   #items{overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;padding:2px 0 4px}
-  .item{background:#ffffff0e;border:1px solid #ffffff18;border-radius:13px;padding:9px 6px;text-align:center;min-height:92px;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-  .item:active{background:#ffffff22;transform:scale(.96)}
-  .item .em{font-size:26px;line-height:1}
+  .item{background:linear-gradient(#ffffff14,#ffffff08);border:1px solid #ffffff1c;border-radius:13px;
+    padding:5px 5px 8px;text-align:center;min-height:104px;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px}
+  .item:active{background:#ffffff26;transform:scale(.96)}
+  .item .pic{width:66px;height:56px;object-fit:contain;image-rendering:auto;
+    filter:drop-shadow(0 2px 3px #0006)}
   .item .nm{font-size:12.5px;font-weight:600;line-height:1.2}
-  .item .cs{font-size:11.5px;color:var(--gold)}
+  .item .cs{font-size:11.5px;color:var(--gold);font-weight:700}
+  .item.sel{background:linear-gradient(#c9a94e,#a5842f);border-color:#ffe9a8}
+  .item.sel .nm{color:#20180f}
+  .item.sel .cs{color:#3d2f10}
   .item.locked{opacity:.42}
 
   /* ---------- info panel ---------- */
@@ -1169,7 +1174,8 @@ function advise(){
 }
 
 /* ============================ ציור ============================ */
-const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const cv=document.getElementById('cv');
+let ctx=cv.getContext('2d');   // ניתן להחלפה זמנית כדי לצייר אייקונים מחוץ למסך
 let W=0,H=0,DPR=1;
 function resize(){
   DPR=Math.min(window.devicePixelRatio||1,2.5);
@@ -2363,6 +2369,32 @@ function warn(x,y,s,em){
   ctx.fillText(em,p[0],p[1]-34);
 }
 
+/* ============================ אייקוני מבנים ============================
+   תפריט הבנייה מציג את המבנה עצמו, מצויר באותו קוד שמצייר אותו על המפה,
+   במקום אימוג'י שלא דומה לכלום. נוצר פעם אחת ונשמר במטמון. */
+const iconCache={};
+function buildingIcon(t){
+  if(iconCache[t]) return iconCache[t];
+  const d=B[t], s=d.s, W2=78, H2=66, dpr=2;
+  const c=document.createElement('canvas');
+  c.width=W2*dpr; c.height=H2*dpr;
+  const oc=c.getContext('2d');
+  const savedCtx=ctx, savedZ=cam.z, savedShade=detailShading;
+  ctx=oc; cam.z=1.5; detailShading=true;
+  oc.setTransform(dpr,0,0,dpr,0,0);
+  const yMin=d.flat?-10:-42, yMax=32*s;
+  const k=Math.min((W2-6)/(64*s), (H2-6)/(yMax-yMin));
+  oc.translate(W2/2, H2/2-((yMin+yMax)/2)*k);
+  oc.scale(k,k);
+  const fake={id:-1,t,x:0,y:0,s,people:d.home?HOUSE[3].cap:0,level:d.home?3:0,
+    staff:1,water:true,des:0,prod:d.food||0,hunger:0,age:5,
+    noRoad:false,noStaff:false,noWater:false};
+  try{ drawB(fake); }catch(e){}
+  ctx=savedCtx; cam.z=savedZ; detailShading=savedShade;
+  iconCache[t]=c.toDataURL();
+  return iconCache[t];
+}
+
 /* ============================ קלט מגע ============================ */
 let ptrs=new Map(), panning=false, pinch0=null, moved=0, downT=0, ghost=null, dragTiles=null;
 
@@ -2509,9 +2541,9 @@ function buildSheet(){
   for(const k in B){
     const d=B[k]; if(d.cat!==curCat) continue;
     const e=document.createElement('div');
-    e.className='item'+(S.money<d.cost?' locked':'')+(tool===k?' on':'');
-    if(tool===k) e.style.cssText='background:#c9a94e;color:#20180f';
-    e.innerHTML='<div class="em">'+d.em+'</div><div class="nm">'+d.n+'</div><div class="cs" style="'+(tool===k?'color:#4a3a1a':'')+'">'+d.cost+' ₪</div>';
+    e.className='item'+(S.money<d.cost?' locked':'')+(tool===k?' sel':'');
+    e.innerHTML='<img class="pic" alt="" src="'+buildingIcon(k)+'">'+
+      '<div class="nm">'+d.n+'</div><div class="cs">'+d.cost+' ₪</div>';
     e.onclick=()=>{
       const next=(tool===k?null:k);
       clearTool(); tool=next; sel=null; hidePanel();
@@ -2900,6 +2932,18 @@ function boot(){
     if(location.search.indexOf('fast')>=0) for(let k=0;k<400;k++) updateWalkers(0.06);
     const mg=/ghost=(\w+)&?g?=?(\d+)?,?(\d+)?/.exec(location.search);
     if(mg&&B[mg[1]]){ tool=mg[1]; ghost=dragTiles=[[+(mg[2]||22),+(mg[3]||22)]]; }
+    const mu=/ui=(\w+)/.exec(location.search);
+    if(mu){ const u=mu[1];
+      if(u==='menu') $('bMenu').click();
+      else if(u==='sheet'){ openSheet(true); }
+      else if(u==='camp') openCamp();
+      else if(u==='slots') openSlots('load');
+      else if(u==='panel'){ const b=Object.values(S.bl).find(z=>B[z.t].home&&z.level>2)||Object.values(S.bl)[0];
+        if(b){ sel=b; showPanel(b); } }
+      else if(u==='win'){ $('winTitle').textContent='קָפּוּאָה — היעדים הושגו!';
+        $('winText').textContent='רומא מרוצה. השלב הבא: טַרְקִינְיָה — עיירה על אם הדרך';
+        $('mWin').classList.add('show'); }
+    }
   }
   requestAnimationFrame(loop);
 }
