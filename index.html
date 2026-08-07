@@ -44,8 +44,8 @@
     padding:8px calc(var(--safe-r) + 8px) calc(var(--safe-b) + 8px) calc(var(--safe-l) + 8px);
     background:linear-gradient(#1b141000,#1b1410cc 45%,#1b1410f5);display:flex;gap:8px;align-items:center}
   .btn{background:linear-gradient(#4b3a2a,#33271c);border:1px solid #ffffff20;border-radius:14px;color:var(--parch);
-    font-size:13px;font-weight:600;padding:0 12px;height:60px;display:flex;align-items:center;justify-content:center;gap:5px;
-    flex-direction:column;line-height:1.15;min-width:62px}
+    font-size:13px;font-weight:600;padding:0 9px;height:60px;display:flex;align-items:center;justify-content:center;gap:5px;
+    flex-direction:column;line-height:1.15;min-width:54px}
   .btn .ic{font-size:21px;line-height:1}
   .btn:active{transform:scale(.95)}
   .btn.on{background:linear-gradient(#c9a94e,#9c7c2c);color:#20180f;border-color:#ffe9a8}
@@ -184,6 +184,7 @@
 <div id="tools">
   <div class="btn" id="bBuild"><span class="ic">🏛️</span><span>בנייה</span></div>
   <div class="btn" id="bDoze"><span class="ic">⛏️</span><span>הריסה</span></div>
+  <div class="btn" id="bLayer"><span class="ic">🗺️</span><b id="ovLbl2">שכבות</b></div>
   <div class="btn" id="bSpeed"><span class="ic">▶︎</span><b id="spdLbl">רגיל</b></div>
   <div class="btn" id="bMenu"><span class="ic">☰</span><span>תפריט</span></div>
 </div>
@@ -265,7 +266,9 @@
     <li>הנח <b>מגרשי מגורים</b> ליד כביש. אוהלים יתפתחו לבתים ואחוזות ככל שתספק להם מים, מזון, דת ובידור.</li>
     <li><b>חוות</b> אפשר לבנות רק על אדמה פורייה (הכתמים הבהירים).</li>
     <li>מזון עובר: חווה ← <b>אסם</b> ← <b>שוק</b> ← בתים. צריך את שלושתם.</li>
-    <li><b>מיסים</b> נגבים רק מבתים בטווח ה<b>פורום</b>.</li>
+    <li><b>מיסים</b> נגבים רק מבתים בטווח ה<b>פורום</b>. <b>בתי מלאכה</b> מעסיקים מובטלים ומוכרים תוצרת בכסף — אבל מורידים יוקרה, אז הרחק אותם מהאחוזות.</li>
+    <li>מדי כמה שנים יקרה <b>אירוע</b>: בצורת, מגפה, רעידת אדמה או דרישת מס מהקיסר. מרפאה מונעת מגפה, מהנדס מרכך רעידת אדמה, ואסם מלא שורד בצורת.</li>
+    <li>כפתור <b>🗺️ שכבות</b> מראה מפות מידע: יוקרה, כיסוי כיבוי אש ואספקת מים.</li>
   </ul>
   <h2>שליטה</h2>
   <ul>
@@ -397,6 +400,7 @@ function newState(seed){
     bl:{}, nextId:1, money:6000, month:0, year:-320, tax:7,
     mood:55, food:0, pop:0, workers:0, jobs:0, employed:0, unemp:0,
     name:'רומא החדשה', mission:-1, won:false,
+    evCool:40, drought:0, pending:null,
     speed:1, income:0, expense:0, trade:0, lastFoodOK:true, foodRatio:1, rank:0, msgs:0
   };
   genMap(st);
@@ -767,7 +771,7 @@ function monthTick(){
     b.prod=0;
     if(b.noRoad) continue;
     const season=1+0.25*Math.sin((S.month/12)*6.28);
-    b.prod=d.food*b.staff*season;
+    b.prod=d.food*b.staff*season*(S.drought>0?0.55:1);
     prod+=b.prod;
   }
   if(capF<=0){ if(prod>0&&S.msgs%6===0) toast('אין אסם — היבול נרקב בשדות'); prod=0; }
@@ -868,7 +872,9 @@ function monthTick(){
     if(!cov.eng[i] && Math.random()<0.0005){ destroy(b,true); toast('🧱 מבנה קרס — חסר מהנדס עיר'); }
   }
 
-  /* ---- יועץ ---- */
+  /* ---- אירועים ויועץ ---- */
+  if(S.drought>0) S.drought--;
+  rollEvent();
   S.msgs++;
   if(S.msgs%7===0) advise();
 
@@ -1022,6 +1028,77 @@ function drawWalkers(minX,maxX,minY,maxY){
   }
 }
 
+/* ============================ אירועים ============================
+   בלי אירועים כל שלב הוא אותו תרגיל אופטימיזציה. כל אירוע כאן ניתן
+   לריכוך על ידי עיר בנויה היטב — מרפאה מונעת מגפה, מהנדס מרכך רעידת
+   אדמה, אסם מלא שורד בצורת. */
+const EVENTS=[
+ {id:'drought', min:120, w:3, run(){
+    S.drought=12;
+    return '🌵 בצורת פקדה את השדות — היבול יידלדל בשנה הקרובה';
+ }},
+ {id:'bumper', min:100, w:3, run(){
+    const cap=granaryCap(), add=Math.round(cap*0.35);
+    S.food=Math.min(cap,S.food+add);
+    return '🌾 יבול שופע! '+fmt(add)+' מנות מזון נוספו לאסמים';
+ }},
+ {id:'plague', min:160, w:2, run(){
+    let hit=0, saved=0;
+    for(const id in S.bl){ const b=S.bl[id];
+      if(!B[b.t].home||!b.people) continue;
+      if(cov.doc[idx(b.x,b.y)]){ saved+=b.people; continue; }
+      const die=Math.ceil(b.people*0.3); b.people-=die; hit+=die;
+    }
+    S.pop=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home) S.pop+=b.people; }
+    S.mood=clamp(S.mood-10,0,100);
+    return hit? '🤒 מגפה! '+fmt(hit)+' תושבים נספו'+(saved?' — המרפאות הצילו '+fmt(saved):'')
+              : '🤒 מגפה פרצה, אך המרפאות שלך מנעו כל אבדה';
+ }},
+ {id:'quake', min:220, w:2, run(){
+    const list=Object.values(S.bl).filter(b=>!B[b.t].flat&&b.t!=='road');
+    if(!list.length) return null;
+    let n=2+((Math.random()*3)|0), hit=0;
+    for(let k=0;k<n*3&&hit<n;k++){
+      const b=list[(Math.random()*list.length)|0];
+      if(!S.bl[b.id]) continue;
+      if(cov.eng[idx(b.x,b.y)]&&Math.random()<0.55) continue;   // מהנדס מרכך
+      destroy(b,true); hit++;
+    }
+    S.mood=clamp(S.mood-6,0,100);
+    return hit? '🌋 רעידת אדמה! '+hit+' מבנים קרסו' : '🌋 רעידת אדמה — המהנדסים מנעו כל נזק';
+ }},
+ {id:'caravan', min:100, w:3, can(){ return S.food>granaryCap()*0.55; }, run(){
+    const cap=granaryCap(), surplus=Math.round(S.food-cap*0.45);
+    if(surplus<40) return null;
+    S.food-=surplus;
+    const pay=Math.round(surplus*0.55);
+    S.money+=pay;
+    return '🐫 שיירת סוחרים קנתה '+fmt(surplus)+' מנות עודפות תמורת '+fmt(pay)+' ₪';
+ }},
+ // הקיסר לא דורש ממי שאין לו — אחרת עיר בקשיים נכנסת לספירלת חוב
+ {id:'tribute', min:180, w:3, can(){ return S.money>Math.max(300,S.pop*3)*1.3; }, run(){
+    const amt=Math.max(300,Math.round(S.pop*3));
+    ask('דרישה מרומא',
+      'הקיסר דורש מס מיוחד של '+fmt(amt)+' ₪ מן העיר. תשלום יזכה אותך בהוקרה; סירוב יפגע קשות במוניטין.',
+      'שלם '+fmt(amt)+' ₪',
+      ()=>{ S.money-=amt; S.mood=clamp(S.mood+12,0,100); toast('🏛️ המס שולם. רומא מרוצה ממך'); },
+      'לסרב לקיסר',
+      ()=>{ S.mood=clamp(S.mood-14,0,100); toast('😠 סירבת לקיסר. המוניטין שלך נפגע'); });
+    return null;
+ }}
+];
+function rollEvent(){
+  if(S.evCool>0){ S.evCool--; return; }
+  const pool=EVENTS.filter(e=>S.pop>=e.min&&(!e.can||e.can()));
+  if(!pool.length){ S.evCool=6; return; }
+  let total=0; for(const e of pool) total+=e.w;
+  let r=Math.random()*total, pick=pool[0];
+  for(const e of pool){ r-=e.w; if(r<=0){ pick=e; break; } }
+  const msg=pick.run();
+  if(msg) toast(msg);
+  S.evCool=34+((Math.random()*30)|0);   // בערך אירוע כל 3-5 שנים
+}
+
 /* היועץ של העיר — מצביע על הצוואר-בקבוק הכי דחוף */
 function advise(){
   if(!S.pop) return;
@@ -1033,8 +1110,15 @@ function advise(){
   }
   if(S.jobs>S.workers*1.2) return toast('👷 היועץ: אין מספיק עובדים למבנים שבנית');
   if(S.unemp>0.3) return toast('👷 היועץ: אבטלה גבוהה — בנה בתי מלאכה, הם גם מכניסים כסף');
-  let tax=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home&&b.people&&cov.tax[idx(b.x,b.y)]) tax++; }
+  let tax=0, homes=0;
+  for(const id in S.bl){ const b=S.bl[id];
+    if(!B[b.t].home||!b.people) continue;
+    homes++; if(cov.tax[idx(b.x,b.y)]) tax++; }
   if(!tax) return toast('🏦 היועץ: אין הכנסות — הצב פורום בטווח הליכה מהבתים');
+  if(homes&&tax<homes*0.6)
+    return toast('🏦 היועץ: רק '+Math.round(tax/homes*100)+'% מהבתים משלמים מס — צריך עוד פורום');
+  if(S.income<S.expense)
+    return toast('📉 היועץ: ההוצאות גדולות מההכנסות — בנה בתי מלאכה או העלה מס');
   // מה הכי חוסם את שדרוג הבתים
   const miss={};
   for(const id in S.bl){ const b=S.bl[id];
@@ -2190,7 +2274,7 @@ function updateUI(){
   const set=(id,v,cls)=>{ const e=$(id); e.firstElementChild.textContent=v; e.className='st'+(cls?' '+cls:''); };
   set('sMoney',fmt(S.money),S.money<0?'bad':S.money<200?'warn':'');
   set('sPop',fmt(S.pop));
-  set('sFood',fmt(S.food),S.lastFoodOK?'':'bad');
+  set('sFood',(S.drought>0?'🌵':'')+fmt(S.food),S.lastFoodOK?'':'bad');
   const face=S.mood>=70?'😄':S.mood>=55?'🙂':S.mood>=40?'😐':S.mood>=25?'😟':'😡';
   set('sMood',face+Math.round(S.mood),S.mood<40?'bad':S.mood<55?'warn':'');
   set('sJobs',S.employed+'/'+S.workers,S.jobs>S.workers?'warn':'');
@@ -2347,11 +2431,17 @@ $('bStart').onclick=()=>{
   if(inMenu) openTitle();          // הגענו להוראות מהמסך הראשי
   else { showModal(null); save(); toast('התחל בהנחת כביש, ואז מגרשי מגורים לצידו'); }
 };
-$('bOverlay').onclick=()=>{
+function cycleOverlay(){
   overlay=(overlay+1)%OVERLAYS.length;
-  $('ovLbl').textContent=OVERLAYS[overlay]?OV_HE[OVERLAYS[overlay]]:'כבויה';
+  const lbl=OVERLAYS[overlay]?OV_HE[OVERLAYS[overlay]]:'כבויה';
+  $('ovLbl').textContent=lbl;
+  $('ovLbl2').textContent=OVERLAYS[overlay]?lbl:'שכבות';
+  $('bLayer').classList.toggle('on',!!OVERLAYS[overlay]);
+  if(OVERLAYS[overlay]) toast('שכבת מידע: '+lbl);
   dirty=true;
-};
+}
+$('bOverlay').onclick=cycleOverlay;
+$('bLayer').onclick=cycleOverlay;
 $('taxSlider').oninput=e=>{ S.tax=+e.target.value; $('taxVal').textContent=S.tax+'%'; };
 
 /* ============================ שמירה וטעינה ============================ */
@@ -2359,7 +2449,7 @@ const SLOTS=3, slotKey=n=>SAVE_KEY+'-slot'+n;
 
 function serialize(){
   return {v:2,name:S.name,seed:S.seed,mission:S.mission,won:S.won,
-    money:S.money,month:S.month,year:S.year,tax:S.tax,
+    money:S.money,month:S.month,year:S.year,tax:S.tax,evCool:S.evCool,drought:S.drought,
     mood:S.mood,food:S.food,rank:S.rank,nextId:S.nextId,speed:S.speed,pop:S.pop,
     at:Date.now(),cam:{x:cam.x,y:cam.y,z:cam.z},cut:S.cleared,
     rub:Array.from(S.rubble).map((v,i)=>v?i:-1).filter(i=>i>=0),
@@ -2369,6 +2459,7 @@ function applySave(o){
   S=newState(o.seed); walkers.length=0;
   S.name=o.name||'העיר שלי';
   S.mission=(o.mission==null?-1:o.mission); S.won=!!o.won;
+  S.evCool=o.evCool==null?40:o.evCool; S.drought=o.drought||0;
   S.money=o.money;S.month=o.month;S.year=o.year;S.tax=o.tax;S.mood=o.mood;S.food=o.food;
   S.rank=o.rank||0;S.nextId=o.nextId||1;S.speed=o.speed==null?1:o.speed;
   for(const i of (o.rub||[])) S.rubble[i]=1;
@@ -2418,15 +2509,20 @@ let inMenu=true, newSeed=0, askCb=null;
 /* דיאלוג אישור משלנו. confirm() המובנה מוחזר כ-false בלי להציג כלום
    בחלק מהמכשירים (PWA במסך הבית, דפדפנים מוטמעים), וזה גרם לכפתורים
    להיראות כאילו הם פשוט לא עובדים. */
-function ask(title,text,yes,cb){
+let askNoCb=null;
+function ask(title,text,yes,cb,noLabel,noCb){
   $('askTitle').textContent=title;
   $('askText').textContent=text||'';
   $('askYes').textContent=yes||'אישור';
-  askCb=cb;
+  $('askNo').textContent=noLabel||'ביטול';
+  askCb=cb; askNoCb=noCb||null;
   $('mAsk').classList.add('show');
 }
-$('askYes').onclick=()=>{ $('mAsk').classList.remove('show'); const f=askCb; askCb=null; if(f) f(); };
-$('askNo').onclick =()=>{ $('mAsk').classList.remove('show'); askCb=null; };
+// שני הכפתורים מנקים תמיד את שני ה-callbacks, אחרת דיאלוג עם כפתור
+// "לא" מותאם היה מדביק את ההתנהגות שלו לכל דיאלוג הבא במשחק
+function askClose(){ $('mAsk').classList.remove('show'); const y=askCb,n=askNoCb; askCb=askNoCb=null; return[y,n]; }
+$('askYes').onclick=()=>{ const f=askClose()[0]; if(f) f(); };
+$('askNo').onclick =()=>{ const f=askClose()[1]; if(f) f(); };
 
 function showModal(id){
   ['mTitle','mNew','mSlots','mIntro','mMenu','mCamp','mWin'].forEach(m=>$(m).classList.toggle('show',m===id));
