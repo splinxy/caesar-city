@@ -271,7 +271,12 @@
     <li>הנח <b>מגרשי מגורים</b> ליד כביש. אוהלים יתפתחו לבתים ואחוזות ככל שתספק להם מים, מזון, דת ובידור.</li>
     <li><b>חוות</b> אפשר לבנות רק על אדמה פורייה (הכתמים הבהירים).</li>
     <li>מזון עובר: חווה ← <b>אסם</b> ← <b>שוק</b> ← בתים. צריך את שלושתם.</li>
-    <li><b>מיסים</b> נגבים רק מבתים בטווח ה<b>פורום</b>. <b>בתי מלאכה</b> מעסיקים מובטלים ומוכרים תוצרת בכסף — אבל מורידים יוקרה, אז הרחק אותם מהאחוזות.</li>
+    <li><b>מיסים</b> נגבים רק מבתים בטווח ה<b>פורום</b>.</li>
+    <li><b>שרשרת ייצור</b> — מדרגה 3 ומעלה הבתים דורשים <b>סחורות</b>, לא רק שירותים:<br>
+      מכרה חימר ← בית יוצר ← <b>כדים</b> (דרגה 3)<br>
+      מטע זיתים ← בית בד ← <b>שמן</b> (דרגה 5)<br>
+      שדה פשתן ← בית אריגה ← <b>בדים</b> (דרגה 6)<br>
+      צריך גם <b>מחסן</b> לאגור את התוצרת, ו<b>שוק</b> שיחלק אותה לבתים.</li>
     <li>מדי כמה שנים יקרה <b>אירוע</b>: בצורת, מגפה, רעידת אדמה או דרישת מס מהקיסר. מרפאה מונעת מגפה, מהנדס מרכך רעידת אדמה, ואסם מלא שורד בצורת.</li>
     <li>כפתור <b>🗺️ שכבות</b> מראה מפות מידע: יוקרה, כיסוי כיבוי אש ואספקת מים.</li>
   </ul>
@@ -314,16 +319,22 @@ const T_GRASS=0,T_WATER=1,T_FERT=2,T_TREE=3,T_ROCK=4;
 
 const MONTHS=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 
+/* סולם הדיור. מדרגה 3 ומעלה הבתים דורשים גם סחורות מיוצרות — זה מה
+   שהופך את שרשרת הייצור מקישוט לתנאי הכרחי, בדיוק כמו במקור. */
 const HOUSE=[
  {name:'אוהלים',      cap:5, tax:0,  need:{}},
  {name:'בקתות',       cap:7, tax:1,  need:{water:1}},
  {name:'צריפים',      cap:9, tax:3,  need:{water:1,food:1}},
- {name:'בתים קטנים',  cap:12,tax:6,  need:{water:1,food:1,relig:1}},
- {name:'בתים גדולים', cap:16,tax:10, need:{water:2,food:1,relig:1,fun:1,des:2}},
- {name:'אחוזות',      cap:20,tax:16, need:{water:2,food:1,relig:1,fun:1,baths:1,des:6}},
- {name:'אחוזות פאר',  cap:26,tax:24, need:{water:2,food:1,relig:1,fun:1,baths:1,doc:1,des:12}}
+ {name:'בתים קטנים',  cap:12,tax:6,  need:{water:1,food:1,relig:1,pot:1}},
+ {name:'בתים גדולים', cap:16,tax:10, need:{water:2,food:1,relig:1,fun:1,pot:1,des:2}},
+ {name:'אחוזות',      cap:20,tax:16, need:{water:2,food:1,relig:1,fun:1,baths:1,pot:1,oil:1,des:6}},
+ {name:'אחוזות פאר',  cap:26,tax:24, need:{water:2,food:1,relig:1,fun:1,baths:1,doc:1,pot:1,oil:1,cloth:1,des:12}}
 ];
-const SVC_HE={water:'מים',food:'מזון',relig:'דת',fun:'בידור',baths:'מרחצאות',doc:'רפואה',des:'יוקרה'};
+const SVC_HE={water:'מים',food:'מזון',relig:'דת',fun:'בידור',baths:'מרחצאות',doc:'רפואה',
+  des:'יוקרה',pot:'כדים',oil:'שמן',cloth:'בדים'};
+// חומרי גלם ← סחורות
+const RAW_HE={clay:'חימר',olive:'זיתים',flax:'פשתן'};
+const GOOD_HE={pot:'כדים',oil:'שמן',cloth:'בדים'};
 
 /* בנייני המשחק */
 const B={
@@ -345,9 +356,13 @@ const B={
  prefect:   {n:'משמר העיר',   em:'🚒',cat:'safe', cost:45, s:1,jobs:6,walk:12,svc:'fire'},
  engineer:  {n:'מהנדס העיר',  em:'🔧',cat:'safe', cost:45, s:1,jobs:5,walk:12,svc:'eng'},
  forum:     {n:'פורום',       em:'🏦',cat:'gov',  cost:130,s:2,jobs:6,walk:14,svc:'tax'},
- pottery:   {n:'בית יוצר',    em:'🏺',cat:'work', cost:85, s:1,jobs:12,earn:15,dirty:2},
- oilpress:  {n:'בית בד',      em:'🫒',cat:'work', cost:120,s:2,jobs:16,earn:22,dirty:3},
- weaver:    {n:'בית אריגה',   em:'🧵',cat:'work', cost:150,s:2,jobs:20,earn:30,dirty:2},
+ claypit:   {n:'מכרה חימר',   em:'⛏️',cat:'work', cost:50, s:2,jobs:6, raw:'clay', rate:16,dirty:3},
+ olivegrv:  {n:'מטע זיתים',   em:'🫒',cat:'work', cost:55, s:2,jobs:6, fert:1,raw:'olive',rate:14},
+ flaxfield: {n:'שדה פשתן',    em:'🌾',cat:'work', cost:55, s:2,jobs:6, fert:1,raw:'flax', rate:14},
+ pottery:   {n:'בית יוצר',    em:'🏺',cat:'work', cost:85, s:1,jobs:10,earn:15,dirty:2,needs:'clay', makes:'pot',  rate:14},
+ oilpress:  {n:'בית בד',      em:'🫒',cat:'work', cost:120,s:2,jobs:12,earn:22,dirty:3,needs:'olive',makes:'oil',  rate:12},
+ weaver:    {n:'בית אריגה',   em:'🧵',cat:'work', cost:150,s:2,jobs:14,earn:30,dirty:2,needs:'flax', makes:'cloth',rate:11},
+ warehouse: {n:'מחסן',        em:'📦',cat:'work', cost:100,s:2,jobs:5, wstore:300},
  garden:    {n:'גינה',        em:'🌳',cat:'deco', cost:12, s:1,drag:1,des:4,flat:1},
  plaza:     {n:'כיכר שיש',    em:'⬜',cat:'deco', cost:16, s:1,drag:1,des:2,flat:1},
  statue:    {n:'פסל',         em:'🗿',cat:'deco', cost:40, s:1,des:9},
@@ -406,6 +421,7 @@ function newState(seed){
     mood:55, food:0, pop:0, workers:0, jobs:0, employed:0, unemp:0,
     name:'רומא החדשה', mission:-1, won:false,
     evCool:40, drought:0, pending:null,
+    raw:{clay:0,olive:0,flax:0}, goods:{pot:0,oil:0,cloth:0},
     speed:1, income:0, expense:0, trade:0, lastFoodOK:true, foodRatio:1, rank:0, msgs:0
   };
   genMap(st);
@@ -702,9 +718,10 @@ function computeCoverage(){
 }
 
 function houseServices(b){
-  const i=idx(b.x,b.y);
+  const i=idx(b.x,b.y), g=b.g||{pot:0,oil:0,cloth:0};
   return {water:cov.water2[i]?2:(cov.water1[i]?1:0),food:cov.food[i],relig:cov.relig[i],
-    fun:cov.fun[i],baths:cov.baths[i],doc:cov.doc[i],des:Math.max(0,desG[i])};
+    fun:cov.fun[i],baths:cov.baths[i],doc:cov.doc[i],des:Math.max(0,desG[i]),
+    pot:g.pot>0?1:0, oil:g.oil>0?1:0, cloth:g.cloth>0?1:0};
 }
 function maxLevel(b){
   const s=houseServices(b);
@@ -730,7 +747,9 @@ function missingFor(b,L){
    רעב הורג תוך חודשים, שריפה היא סיכון מזדמן. לכן מזון לפני ביטחון —
    אחרת שני משמרות עיר בולעים את כל העובדים של כפר, והחוות נשארות ריקות. */
 const PRIO={wheat:1,veg:1,fruit:1, granary:2,market:2, forum:3,
-  prefect:4,engineer:4, temple:5,doctor:5, pottery:6,oilpress:6,weaver:6, baths:7,theatre:7};
+  prefect:4,engineer:4, temple:5,doctor:5,
+  claypit:6,olivegrv:6,flaxfield:6, warehouse:6, pottery:7,oilpress:7,weaver:7,
+  baths:8,theatre:8};
 function assignWorkers(){
   S.workers=Math.floor(S.pop*0.38);
   const tiers=new Map(); let need=0;
@@ -757,6 +776,12 @@ function assignWorkers(){
 
 function granaryCap(){
   let c=0; for(const id in S.bl){ const b=S.bl[id]; if(b.t==='granary'&&!b.noRoad) c+=B.granary.store*(0.5+0.5*b.staff); }
+  return Math.floor(c);
+}
+// קיבולת מחסנים — לכל חומר גלם ולכל סחורה בנפרד
+function warehouseCap(){
+  let c=0; for(const id in S.bl){ const b=S.bl[id];
+    if(b.t==='warehouse'&&!b.noRoad) c+=B.warehouse.wstore*(0.5+0.5*b.staff); }
   return Math.floor(c);
 }
 
@@ -828,11 +853,48 @@ function monthTick(){
   }
   S.pop=0; for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home) S.pop+=b.people; }
 
+  /* ---- שרשרת הייצור: חומר גלם ← בית מלאכה ← מחסן ← שוק ← בתים ---- */
+  const wCap=warehouseCap();
+  // 1) חומרי גלם
+  for(const id in S.bl){ const b=S.bl[id], d=B[b.t];
+    if(!d.raw) continue;
+    b.prod=0;
+    if(b.noRoad) continue;
+    b.prod=d.rate*b.staff;
+    S.raw[d.raw]=Math.min(wCap,S.raw[d.raw]+b.prod);
+  }
+  // 2) בתי מלאכה — ממירים חומר גלם לסחורה, ומרוויחים לפי התפוקה בפועל
+  for(const id in S.bl){ const b=S.bl[id], d=B[b.t];
+    if(!d.makes) continue;
+    b.prod=0; b.starved=false;
+    if(b.noRoad) continue;
+    const want=d.rate*b.staff;
+    const have=Math.min(want,S.raw[d.needs]);
+    if(want>0&&have<want*0.5) b.starved=true;
+    S.raw[d.needs]-=have;
+    b.prod=have;
+    S.goods[d.makes]=Math.min(wCap,S.goods[d.makes]+have);
+  }
+  // 3) השוק מחלק סחורות לבתים; מלאי חסר מוריד בהדרגה את דרגת הבית
+  for(const id in S.bl){ const b=S.bl[id];
+    if(!B[b.t].home||!b.people) continue;
+    if(!b.g) b.g={pot:0,oil:0,cloth:0};
+    const served=cov.food[idx(b.x,b.y)];
+    for(const k of ['pot','oil','cloth']){
+      const from={pot:3,oil:5,cloth:6}[k];
+      if(b.level+1<from&&b.level<from){ b.g[k]=Math.max(b.g[k],0); continue; }
+      const need=b.people*0.045;
+      if(served&&S.goods[k]>=need){ S.goods[k]-=need; b.g[k]=6; }
+      else b.g[k]=Math.max(0,b.g[k]-1);
+    }
+  }
+
   /* ---- כספים ---- */
   let inc=0, trade=0;
   for(const id in S.bl){ const b=S.bl[id], d=B[b.t];
-    if(d.earn){ // בתי מלאכה מוכרים את תוצרתם
-      if(!b.noRoad) trade+=d.earn*b.staff;
+    if(d.earn){ // מכירת תוצרת — לפי מה שיוצר בפועל, לא לפי כוח אדם בלבד
+      if(!b.noRoad){ const full=d.rate*b.staff;
+        trade+=d.earn*b.staff*(full>0?b.prod/full:0); }
       continue;
     }
     if(!d.home||!b.people) continue;
@@ -1154,6 +1216,16 @@ function advise(){
   }
   if(S.jobs>S.workers*1.2) return toast('👷 היועץ: אין מספיק עובדים למבנים שבנית');
   if(S.unemp>0.3) return toast('👷 היועץ: אבטלה גבוהה — בנה בתי מלאכה, הם גם מכניסים כסף');
+  // צווארי בקבוק בשרשרת הייצור
+  const starved=Object.values(S.bl).filter(b=>b.starved&&!b.noRoad);
+  if(starved.length){
+    const d=B[starved[0].t];
+    return toast('🏺 היועץ: '+d.n+' עומד בלי '+RAW_HE[d.needs]+' — צריך עוד מקור חומר גלם');
+  }
+  if(!warehouseCap()){
+    for(const id in S.bl) if(B[S.bl[id].t].makes&&!S.bl[id].noRoad)
+      return toast('📦 היועץ: בנה מחסן ליד כביש — בלעדיו התוצרת לא נאגרת');
+  }
   let tax=0, homes=0;
   for(const id in S.bl){ const b=S.bl[id];
     if(!B[b.t].home||!b.people) continue;
@@ -2024,6 +2096,94 @@ function drawB(b){
       if(b.noRoad) warn(x,y,s,'🚧'); else if(b.staff<0.6) warn(x,y,s,'👷');
       break;
     }
+    case 'claypit': {
+      // בור כרייה מדורג
+      diamond(x,y,s); ctx.fillStyle='#8a6a4c'; ctx.fill();
+      const p=V(x+s/2,y+s/2);
+      for(let k=0;k<3;k++){
+        const f=1-k*0.22;
+        ctx.fillStyle=k%2?'#7d5d41':'#916f50';
+        ctx.beginPath();ctx.ellipse(p[0],p[1]-2+k*2.6,s*HW*0.42*f,s*HH*0.42*f,0,0,6.3);ctx.fill();
+      }
+      ctx.fillStyle='#5d442f';
+      ctx.beginPath();ctx.ellipse(p[0],p[1]+4,s*HW*0.16,s*HH*0.16,0,0,6.3);ctx.fill();
+      // ערמות חימר וכלי עבודה
+      for(const o of [[-16,-6],[14,-2],[-4,8]]){
+        ctx.fillStyle='#a3603c';
+        ctx.beginPath();ctx.moveTo(p[0]+o[0]-5,p[1]+o[1]);
+        ctx.lineTo(p[0]+o[0],p[1]+o[1]-6);ctx.lineTo(p[0]+o[0]+5,p[1]+o[1]);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#8c4f30';
+        ctx.beginPath();ctx.moveTo(p[0]+o[0],p[1]+o[1]);
+        ctx.lineTo(p[0]+o[0],p[1]+o[1]-6);ctx.lineTo(p[0]+o[0]+5,p[1]+o[1]);ctx.closePath();ctx.fill();
+      }
+      shadow(x+0.05,y+0.05,0.42,9);
+      box(x+0.06,y+0.06,0.4,9,'#c9b087','#96805f','#b39b73');
+      gable(x+0.03,y+0.03,0.46,9.5,4.5,'#7d5236','#95633f','#e0d3b4');
+      if(b.noRoad) warn(x,y,s,'🚧'); else if(b.staff<0.5) warn(x,y,s,'👷');
+      break;
+    }
+    case 'olivegrv': {
+      diamond(x,y,s); ctx.fillStyle='#8b8a5c'; ctx.fill();
+      ctx.strokeStyle='rgba(96,86,52,0.35)'; ctx.lineWidth=1;
+      for(let i=1;i<7;i++){ const a=V(x+0.05,y+0.05+(s-0.1)*i/7), c=V(x+s-0.05,y+0.05+(s-0.1)*i/7);
+        ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(c[0],c[1]);ctx.stroke(); }
+      const grow=clamp(b.prod/(B.olivegrv.rate||1),0.25,1);
+      for(let i=0;i<3;i++)for(let j=0;j<3;j++){
+        const q=V(x+0.34+i*0.62,y+0.34+j*0.62);
+        ctx.fillStyle='#6b5336'; ctx.fillRect(q[0]-1.4,q[1]-6,2.8,6);
+        ctx.fillStyle='#7f9268';
+        ctx.beginPath();ctx.arc(q[0],q[1]-10,5*grow+2,0,6.3);ctx.fill();
+        ctx.fillStyle='#9aae82';
+        ctx.beginPath();ctx.arc(q[0]-2,q[1]-11.5,3*grow+1,0,6.3);ctx.fill();
+        ctx.fillStyle='#3f4a2c';
+        ctx.beginPath();ctx.arc(q[0]+2.4,q[1]-9,1.3,0,6.3);ctx.fill();
+      }
+      shadow(x+0.05,y+0.05,0.38,8);
+      box(x+0.06,y+0.06,0.36,8,'#c9b087','#96805f','#b39b73');
+      gable(x+0.03,y+0.03,0.42,8.5,4,'#7d5236','#95633f','#e0d3b4');
+      if(b.noRoad) warn(x,y,s,'🚧');
+      break;
+    }
+    case 'flaxfield': {
+      diamond(x,y,s); ctx.fillStyle='#8a8556'; ctx.fill();
+      const grow=clamp(b.prod/(B.flaxfield.rate||1),0.2,1);
+      for(let i=0;i<10;i++){
+        const t0=0.06+(s-0.12)*i/10;
+        const a=V(x+0.06,y+t0), c=V(x+s-0.06,y+t0);
+        ctx.strokeStyle='#7d8f5e'; ctx.lineWidth=2.6*grow+0.8;
+        ctx.beginPath();ctx.moveTo(a[0],a[1]-3*grow);ctx.lineTo(c[0],c[1]-3*grow);ctx.stroke();
+        ctx.strokeStyle='#9aa9d6'; ctx.lineWidth=1.3*grow;
+        ctx.beginPath();ctx.moveTo(a[0],a[1]-5*grow);ctx.lineTo(c[0],c[1]-5*grow);ctx.stroke();
+      }
+      shadow(x+0.05,y+0.05,0.38,8);
+      box(x+0.06,y+0.06,0.36,8,'#c9b087','#96805f','#b39b73');
+      gable(x+0.03,y+0.03,0.42,8.5,4,'#7d5236','#95633f','#e0d3b4');
+      if(b.noRoad) warn(x,y,s,'🚧');
+      break;
+    }
+    case 'warehouse': {
+      shadow(x,y,s,14);
+      diamond(x,y,s); ctx.fillStyle='#a89a7e'; ctx.fill();
+      // סככה פתוחה על עמודי עץ
+      const posts=[[0.1,0.1],[0.9,0.1],[0.1,0.9],[0.9,0.9]];
+      ctx.fillStyle='#7a6244';
+      for(const o of posts){ const q=V(x+o[0]*s,y+o[1]*s); ctx.fillRect(q[0]-1.8,q[1]-15,3.6,15); }
+      // סחורות מאוחסנות
+      const stack=(sx,sy,c1,c2,kind)=>{
+        const q=V(x+sx,y+sy);
+        if(kind===0){ for(let k=0;k<3;k++){ ctx.fillStyle=k%2?c1:c2;
+            ctx.beginPath();ctx.ellipse(q[0]-4+k*4,q[1]-4-k*0.5,2.6,3.4,0,0,6.3);ctx.fill(); } }
+        else { ctx.fillStyle=c1; ctx.fillRect(q[0]-5,q[1]-8,10,7);
+          ctx.fillStyle=c2; ctx.fillRect(q[0]-5,q[1]-8,10,2); }
+      };
+      stack(0.34,0.34,'#c2703f','#a35a30',0);
+      stack(0.68,0.4,'#8a6a3c','#6f5430',1);
+      stack(0.36,0.72,'#b8506a','#8f3d52',1);
+      // גג הסככה
+      gableR(x+0.02,y+0.02,s-0.04,s-0.04,15,6,'#7d5236','#95633f','#ddcdac');
+      if(b.noRoad) warn(x,y,s,'🚧');
+      break;
+    }
     case 'pottery': case 'oilpress': case 'weaver': {
       shadow(x,y,s,16);
       const roofC=b.t==='pottery'?['#9c4f30','#b85f39']
@@ -2622,7 +2782,19 @@ function showPanel(b){
     if(d.jobs) rows.push('עובדים: <b>'+Math.round(d.jobs*b.staff)+'</b> מתוך '+d.jobs+
       '<div class="bar"><i style="width:'+Math.round(b.staff*100)+'%"></i></div>');
     if(d.food) rows.push('תפוקה חודשית: <b>'+Math.round(b.prod)+'</b> מנות מזון');
-    if(d.earn) rows.push('הכנסה חודשית: <b>'+Math.round(d.earn*b.staff)+' ₪</b> ממכירת התוצרת');
+    if(d.raw) rows.push('כורה/מגדל: <b>'+Math.round(b.prod)+'</b> '+RAW_HE[d.raw]+' לחודש'+
+      '<br>במחסנים: <b>'+Math.round(S.raw[d.raw])+'</b> מתוך '+fmt(warehouseCap()));
+    if(d.makes){
+      const full=d.rate*b.staff;
+      rows.push('מייצר: <b>'+Math.round(b.prod)+'</b> '+GOOD_HE[d.makes]+' לחודש (מ'+RAW_HE[d.needs]+')');
+      rows.push('במחסנים: <b>'+Math.round(S.goods[d.makes])+'</b> '+GOOD_HE[d.makes]+
+        ' • '+RAW_HE[d.needs]+' זמין: <b>'+Math.round(S.raw[d.needs])+'</b>');
+      if(b.starved) rows.push('<span class="warnrow">⚠ חסר '+RAW_HE[d.needs]+' — התפוקה נפגעת</span>');
+      if(full>0) rows.push('הכנסה חודשית: <b>'+Math.round(d.earn*b.staff*(b.prod/full))+' ₪</b>');
+    }
+    if(d.wstore) rows.push('קיבולת: <b>'+fmt(Math.round(d.wstore*(0.5+0.5*b.staff)))+'</b> לכל סחורה'+
+      '<br>כדים <b>'+Math.round(S.goods.pot)+'</b> • שמן <b>'+Math.round(S.goods.oil)+
+      '</b> • בדים <b>'+Math.round(S.goods.cloth)+'</b>');
     if(d.dirty) rows.push('מוריד יוקרה בשכונה — הרחק מבתי מגורים');
     if(d.store) rows.push('קיבולת אחסון: <b>'+Math.round(d.store*(0.5+0.5*b.staff))+'</b> מנות'+
       '<br>במחסני העיר כרגע: <b>'+Math.round(S.food)+'</b> מנות');
@@ -2652,7 +2824,11 @@ $('bMenu').onclick=()=>{
     'הוצאות חודשיות: <b>'+Math.round(S.expense)+' ₪</b><br>'+
     'מקומות עבודה: <b>'+S.jobs+'</b> • כוח עבודה: <b>'+S.workers+'</b><br>'+
     'אבטלה: <b>'+Math.round(S.unemp*100)+'%</b><br>'+
-    'מבנים בעיר: <b>'+Object.keys(S.bl).length+'</b>';
+    'מבנים בעיר: <b>'+Object.keys(S.bl).length+'</b><br>'+
+    '<span style="opacity:.75">סחורות:</span> כדים <b>'+Math.round(S.goods.pot)+
+    '</b> • שמן <b>'+Math.round(S.goods.oil)+'</b> • בדים <b>'+Math.round(S.goods.cloth)+'</b><br>'+
+    '<span style="opacity:.75">חומרי גלם:</span> חימר <b>'+Math.round(S.raw.clay)+
+    '</b> • זיתים <b>'+Math.round(S.raw.olive)+'</b> • פשתן <b>'+Math.round(S.raw.flax)+'</b>';
   $('mMenu').classList.add('show');
 };
 $('bClose').onclick=()=>$('mMenu').classList.remove('show');
@@ -2684,6 +2860,7 @@ const SLOTS=3, slotKey=n=>SAVE_KEY+'-slot'+n;
 function serialize(){
   return {v:2,name:S.name,seed:S.seed,mission:S.mission,won:S.won,
     money:S.money,month:S.month,year:S.year,tax:S.tax,evCool:S.evCool,drought:S.drought,
+    raw:S.raw,goods:S.goods,
     mood:S.mood,food:S.food,rank:S.rank,nextId:S.nextId,speed:S.speed,pop:S.pop,
     at:Date.now(),cam:{x:cam.x,y:cam.y,z:cam.z},cut:S.cleared,
     rub:Array.from(S.rubble).map((v,i)=>v?i:-1).filter(i=>i>=0),
@@ -2694,6 +2871,8 @@ function applySave(o){
   S.name=o.name||'העיר שלי';
   S.mission=(o.mission==null?-1:o.mission); S.won=!!o.won;
   S.evCool=o.evCool==null?40:o.evCool; S.drought=o.drought||0;
+  if(o.raw) S.raw=Object.assign(S.raw,o.raw);
+  if(o.goods) S.goods=Object.assign(S.goods,o.goods);
   S.money=o.money;S.month=o.month;S.year=o.year;S.tax=o.tax;S.mood=o.mood;S.food=o.food;
   S.rank=o.rank||0;S.nextId=o.nextId||1;S.speed=o.speed==null?1:o.speed;
   for(const i of (o.rub||[])) S.rubble[i]=1;
@@ -2956,6 +3135,7 @@ function demoCity(){
   // שטח שטוח ונקי
   for(let x=2;x<GRID-2;x++)for(let y=2;y<GRID-2;y++) S.terr[idx(x,y)]=T_GRASS;
   for(let x=4;x<30;x++)for(let y=23;y<27;y++) S.terr[idx(x,y)]=T_FERT;
+  for(let x=4;x<30;x++)for(let y=32;y<36;y++) S.terr[idx(x,y)]=T_FERT;
   demoLabels=[];
   const P=(t,x,y)=>{ const ok=place(t,x,y,true); if(ok) demoLabels.push([x,y,B[t].n]); return ok; };
   // רחוב ראשי עם בתים בכל הדרגות
@@ -2974,7 +3154,9 @@ function demoCity(){
   row(y0+5,['temple','theatre','forum','market']);
   row(y0+10,['granary','baths','doctor','prefect','engineer','well']);
   row(y0+15,['wheat','veg','fruit','statue','obelisk','plaza']);
-  row(y0+20,['pottery','oilpress','weaver']);
+  row(y0+20,['claypit','pottery','warehouse']);
+  for(let x=4;x<=30;x++) place('road',x,y0+24,true);
+  row(y0+25,['olivegrv','oilpress','weaver']);
   // שרשרת מים
   for(let x=30;x<=36;x++) S.terr[idx(x,30)]=T_WATER;
   P('reservoir',32,31); for(let k=0;k<5;k++) place('aqueduct',32,33+k,true);
@@ -2989,8 +3171,8 @@ function demoCity(){
   const mz=/z=([\d.]+)/.exec(location.search), mr=/row=(\d+)/.exec(location.search);
   cam.z=mz?+mz[1]:1.0;
   const focus=mr?+mr[1]:0;
-  const fy=[y0-1,y0+5,y0+10,y0+15,y0+20,34][focus]||y0;
-  const fx=[12,10,12,12,10,33][focus]||12;
+  const fy=[y0-1,y0+5,y0+10,y0+15,y0+20,34,y0+25][focus]||y0;
+  const fx=[12,10,12,12,10,33,10][focus]||12;
   const mfx=/fx=(\d+)/.exec(location.search);
   const c2=V(mfx?+mfx[1]:fx,fy); cam.x=c2[0]; cam.y=c2[1];
   updateUI(); dirty=true;
