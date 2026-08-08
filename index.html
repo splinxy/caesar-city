@@ -169,6 +169,33 @@
   .ask-card p{opacity:.8}
   .taxrow{display:flex;align-items:center;gap:10px;margin:8px 0}
   .taxrow input{flex:1;accent-color:var(--gold)}
+  /* ---------- structured menu ---------- */
+  .secttl{font-size:11.5px;font-weight:700;letter-spacing:.6px;color:var(--gold);
+    opacity:.85;margin:16px 0 7px;padding-bottom:4px;border-bottom:1px solid #ffffff1a}
+  .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .sgrid .cell{background:#ffffff0e;border:1px solid #ffffff16;border-radius:10px;padding:7px 9px}
+  .sgrid .cell span{display:block;font-size:10.5px;opacity:.62;margin-bottom:2px}
+  .sgrid .cell b{font-size:14.5px;font-weight:700}
+  .sgrid .cell.bad b{color:var(--bad)}
+  .sgrid .cell.good b{color:#9ed37a}
+  .sgrid .wide2{grid-column:1 / -1}
+  .ratings{display:grid;gap:6px}
+  .rrow{display:flex;align-items:center;gap:9px;font-size:12.5px}
+  .rrow .rn{width:74px;flex:none;opacity:.85}
+  .rrow .rb{flex:1;height:9px;border-radius:5px;background:#ffffff16;overflow:hidden}
+  .rrow .rb i{display:block;height:100%;border-radius:5px;transition:width .3s}
+  .rrow .rv{width:30px;text-align:left;flex:none;font-weight:700}
+  .gods{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;text-align:center}
+  .gods .gd{background:#ffffff0e;border:1px solid #ffffff16;border-radius:9px;padding:6px 2px}
+  .gods .gd .ge{font-size:17px;line-height:1.1}
+  .gods .gd .gn{font-size:9.5px;opacity:.65;margin-top:1px}
+  .gods .gd .gv{font-size:12px;font-weight:700;margin-top:2px}
+  .gods .gd.angry{border-color:#a8483a;background:#a8483a22}
+  .gods .gd.angry .gv{color:#f0a24a}
+  .btn.wide{height:46px;flex-direction:row;font-size:14px;width:100%;margin-top:9px;gap:8px}
+  .btn.wide b{font-size:11.5px;opacity:.75;font-weight:600}
+  .hint{font-size:11.5px;opacity:.62;margin:6px 0 0;line-height:1.5}
+  #taxSlider{width:100%;accent-color:var(--gold);margin-top:2px}
 </style>
 </head>
 <body>
@@ -290,12 +317,24 @@
 </div></div>
 
 <div class="modal" id="mMenu"><div class="card">
-  <h1>תפריט</h1>
-  <div class="taxrow"><span style="font-size:13px">שיעור מס: <b id="taxVal">7%</b></span>
-    <input type="range" id="taxSlider" min="0" max="14" step="1" value="7"></div>
-  <p style="font-size:12px;opacity:.7;margin-top:-2px">מס גבוה ממלא את האוצר אבל מוריד את מצב הרוח.</p>
-  <h2>העיר שלך</h2>
-  <div id="menuStats" style="font-size:13px;line-height:1.8"></div>
+  <h1 id="menuCity">העיר שלי</h1>
+  <div class="sub" id="menuRank">כפר</div>
+
+  <div class="secttl">דירוגי העיר</div>
+  <div id="menuRatings" class="ratings"></div>
+
+  <div class="secttl">מצב העיר</div>
+  <div id="menuStats" class="sgrid"></div>
+
+  <div class="secttl">חסד האלים</div>
+  <div id="menuGods" class="gods"></div>
+  <div class="btn wide" id="bFestival">🎉 לערוך פסטיבל<b id="festCost"></b></div>
+
+  <div class="secttl">שיעור מס — <b id="taxVal">7%</b></div>
+  <input type="range" id="taxSlider" min="0" max="14" step="1" value="7">
+  <p class="hint">מס גבוה ממלא את האוצר אבל מוריד את מצב הרוח וחסד הקיסר.</p>
+
+  <div class="secttl">פעולות</div>
   <div class="btn" id="bOverlay">🗺️ שכבת מידע: <b id="ovLbl">כבויה</b></div>
   <div class="btn" id="bSave">💾 שמור משחק</div>
   <div class="btn" id="bLoad">📁 טען משחק שמור</div>
@@ -349,7 +388,12 @@ const B={
  fruit:     {n:'מטע פירות',   em:'🍇',cat:'food', cost:55, s:2,jobs:8,fert:1,food:24},
  granary:   {n:'אסם',         em:'🏚️',cat:'food', cost:110,s:2,jobs:6,store:900},
  market:    {n:'שוק',         em:'🧺',cat:'food', cost:45, s:2,jobs:5,walk:9,svc:'food'},
- temple:    {n:'מקדש',        em:'🏛️',cat:'cult', cost:65, s:2,jobs:3,walk:9,svc:'relig'},
+ t_ceres:   {n:'מקדש קרס',    em:'🌾',cat:'cult', cost:60, s:2,jobs:3,walk:9,svc:'t_ceres',  god:'ceres'},
+ t_neptune: {n:'מקדש נפטון',  em:'🔱',cat:'cult', cost:60, s:2,jobs:3,walk:9,svc:'t_neptune',god:'neptune'},
+ t_mercury: {n:'מקדש מרקוריוס',em:'🏺',cat:'cult',cost:60, s:2,jobs:3,walk:9,svc:'t_mercury',god:'mercury'},
+ t_mars:    {n:'מקדש מארס',   em:'⚔️',cat:'cult', cost:60, s:2,jobs:3,walk:9,svc:'t_mars',   god:'mars'},
+ t_venus:   {n:'מקדש ונוס',   em:'🕊️',cat:'cult', cost:60, s:2,jobs:3,walk:9,svc:'t_venus',  god:'venus'},
+ school:    {n:'בית ספר',     em:'📜',cat:'cult', cost:70, s:1,jobs:8,walk:9,svc:'edu'},
  theatre:   {n:'תיאטרון',     em:'🎭',cat:'cult', cost:120,s:2,jobs:9,walk:9,svc:'fun'},
  baths:     {n:'מרחצאות',     em:'🛁',cat:'cult', cost:90, s:2,jobs:10,walk:8,svc:'baths',needWater:1},
  doctor:    {n:'מרפאה',       em:'⚕️',cat:'cult', cost:45, s:1,jobs:5,walk:9,svc:'doc'},
@@ -380,8 +424,9 @@ const GOALS={
   mood:   {n:'מצב רוח',       get:()=>Math.round(S.mood)},
   nice:   {n:'בתי טיח',       get:()=>cntHomes(3)},
   villas: {n:'אחוזות',        get:()=>cntHomes(5)},
-  culture:{n:'מבני תרבות',    get:()=>Object.values(S.bl)
-            .filter(b=>b.t==='temple'||b.t==='theatre'||b.t==='baths').length}
+  culture:{n:'תרבות',         get:()=>ratings().culture},
+  prosper:{n:'שגשוג',         get:()=>ratings().prosperity},
+  favor:  {n:'חסד הקיסר',     get:()=>ratings().favor}
 };
 function cntHomes(lv){ let n=0;
   for(const id in S.bl){ const b=S.bl[id]; if(B[b.t].home&&b.level>=lv&&b.people>0) n++; }
@@ -390,11 +435,81 @@ const MISSIONS=[
   {n:'קָפּוּאָה',      sub:'כפר ראשון בשדות קמפניה',      money:9000,  g:{pop:150,mood:54}},
   {n:'טַרְקִינְיָה',   sub:'עיירה על אם הדרך',            money:8000,  g:{pop:300,money:12000}},
   {n:'לוּגְדוּנוּם',   sub:'צומת הדרכים של גאליה',        money:8000,  g:{pop:500,mood:58,nice:20}},
-  {n:'מֶדִיוֹלָנוּם',  sub:'מרכז מלאכה משגשג',            money:7000,  g:{pop:800,money:18000,culture:5}},
-  {n:'קַרְתָגוֹ',      sub:'נמל הסחר הגדול',              money:7000,  g:{pop:1200,money:28000,nice:60}},
-  {n:'אָלֶכְּסַנְדְרִיָה',sub:'פנינת המזרח',              money:6000,  g:{pop:1800,mood:62,villas:15}},
-  {n:'רוֹמָא',        sub:'בירת האימפריה — המבחן האחרון',money:6000,  g:{pop:3000,mood:65,villas:40}}
+  {n:'מֶדִיוֹלָנוּם',  sub:'מרכז מלאכה משגשג',            money:7000,  g:{pop:800,money:18000,culture:45}},
+  {n:'קַרְתָגוֹ',      sub:'נמל הסחר הגדול',              money:7000,  g:{pop:1200,prosper:55,nice:60}},
+  {n:'אָלֶכְּסַנְדְרִיָה',sub:'פנינת המזרח',              money:6000,  g:{pop:1800,culture:65,villas:15}},
+  {n:'רוֹמָא',        sub:'בירת האימפריה — המבחן האחרון',money:6000,  g:{pop:3000,culture:70,favor:70,villas:40}}
 ];
+/* ============================ אלים ודירוגים ============================
+   ארבעת הדירוגים הם הדרך שבה רומא מודדת אותך במקור, ולא מספרים יבשים.
+   כל אל דורש מקדש משלו; הזנחה מכעיסה אותו והוא פוגע בעיר בתחום שלו. */
+const GODS=[
+  {k:'ceres',   n:'קרס',      em:'🌾', of:'שדות ומזון'},
+  {k:'neptune', n:'נפטון',    em:'🔱', of:'מים ונהרות'},
+  {k:'mercury', n:'מרקוריוס', em:'🏺', of:'מלאכה וסחר'},
+  {k:'mars',    n:'מארס',     em:'⚔️', of:'שלום העיר'},
+  {k:'venus',   n:'ונוס',     em:'🕊️', of:'רוח התושבים'}
+];
+function ratings(){
+  let homes=0, relig=0, fun=0, edu=0, lvSum=0;
+  for(const id in S.bl){ const b=S.bl[id];
+    if(!B[b.t].home||!b.people) continue;
+    homes++; lvSum+=b.level;
+    const i=idx(b.x,b.y);
+    if(cov.relig[i]) relig++;
+    if(cov.fun[i]) fun++;
+    if(cov.edu[i]) edu++;
+  }
+  const pct=v=>homes?v/homes:0;
+  const culture=Math.round(100*(pct(relig)*0.4+pct(fun)*0.3+pct(edu)*0.3));
+  const avgLv=homes?lvSum/homes:0;
+  const purse=clamp(S.money/8000,0,1);
+  const prosperity=Math.round(clamp(avgLv/6*72+purse*28,0,100));
+  let gsum=0; for(const gd of GODS) gsum+=S.gods[gd.k];
+  const favor=Math.round(clamp(gsum/GODS.length*0.7+S.emperor*0.3,0,100));
+  return {culture,prosperity,peace:Math.round(S.peace),favor};
+}
+// חסד כל אל נגרר לעבר כיסוי המקדשים שלו בעיר
+function updateGods(){
+  let homes=0; const hit={};
+  for(const gd of GODS) hit[gd.k]=0;
+  for(const id in S.bl){ const b=S.bl[id];
+    if(!B[b.t].home||!b.people) continue;
+    homes++;
+    const i=idx(b.x,b.y);
+    for(const gd of GODS) if(cov['t_'+gd.k][i]) hit[gd.k]++;
+  }
+  for(const gd of GODS){
+    const c=homes?hit[gd.k]/homes:0;
+    const target=18+82*c;
+    S.gods[gd.k]+=(target-S.gods[gd.k])*0.12;
+    S.gods[gd.k]=clamp(S.gods[gd.k],0,100);
+  }
+  // שלום מתאושש מעצמו, אבל אי-שקט מתמשך בעיר אומללה בולם אותו
+  S.peace=clamp(S.peace+1+(S.mood<30?-0.6:0),0,100);
+  S.emperor=clamp(S.emperor-0.05+(S.tax<=7?0.08:-0.05),0,100);
+}
+// זעם האל — כל אחד פוגע בתחום שלו
+function godWrath(){
+  const angry=GODS.filter(gd=>S.gods[gd.k]<22);
+  if(!angry.length) return;
+  const gd=angry[(Math.random()*angry.length)|0];
+  if(Math.random()>0.16) return;
+  S.gods[gd.k]=clamp(S.gods[gd.k]+14,0,100);
+  switch(gd.k){
+    case 'ceres':   S.drought=10; S.food*=0.6;
+      toast('🌾 קרס זועמת! היבול קמל והאסמים דוללו'); break;
+    case 'neptune': for(const id in S.bl){ const b=S.bl[id];
+        if(b.t==='reservoir'||b.t==='fountain') b.water=false; }
+      toast('🔱 נפטון זועם! מקורות המים נסתמו'); break;
+    case 'mercury': for(const k in S.goods) S.goods[k]*=0.35;
+      toast('🏺 מרקוריוס זועם! מחסני הסחורות נשדדו'); break;
+    case 'mars':    S.peace=clamp(S.peace-20,0,100); S.mood=clamp(S.mood-10,0,100);
+      toast('⚔️ מארס זועם! אי-שקט פרץ בעיר'); break;
+    case 'venus':   S.mood=clamp(S.mood-16,0,100);
+      toast('🕊️ ונוס זועמת! רוח התושבים נשברה'); break;
+  }
+}
 const PROG_KEY='caesar-city-v1-progress';
 function campaignDone(){ return Math.max(0,parseInt(localStorage.getItem(PROG_KEY)||'0',10)||0); }
 function setCampaignDone(n){ try{ localStorage.setItem(PROG_KEY,String(n)); }catch(e){} }
@@ -422,6 +537,7 @@ function newState(seed){
     name:'רומא החדשה', mission:-1, won:false,
     evCool:40, drought:0, pending:null,
     raw:{clay:0,olive:0,flax:0}, goods:{pot:0,oil:0,cloth:0},
+    gods:{ceres:50,neptune:50,mercury:50,mars:50,venus:50}, peace:70, emperor:50, festivals:0,
     speed:1, income:0, expense:0, trade:0, lastFoodOK:true, foodRatio:1, rank:0, msgs:0
   };
   genMap(st);
@@ -582,6 +698,7 @@ function ring(x,y,s){ const a=[]; for(let d=0;d<s;d++){a.push([x+d,y-1],[x+d,y+s
 
 function place(t,x,y,quiet){
   const d=B[t];
+  if(!d) return false;
   if(S.money<d.cost) return fail(quiet,'אין מספיק כסף באוצר');
   if(!canPlace(t,x,y,quiet)) return false;
   const id=S.nextId++;
@@ -612,7 +729,8 @@ function destroy(b,rub){
 
 /* ============================ סימולציה ============================ */
 const cov={}; // כיסוי שירותים
-['food','relig','fun','baths','doc','fire','eng','tax','water1','water2'].forEach(k=>cov[k]=new Uint8Array(GRID*GRID));
+['food','relig','fun','baths','doc','edu','fire','eng','tax','water1','water2',
+ 't_ceres','t_neptune','t_mercury','t_mars','t_venus'].forEach(k=>cov[k]=new Uint8Array(GRID*GRID));
 const desG=new Int16Array(GRID*GRID);
 const previewCov=new Uint8Array(GRID*GRID);   // כיסוי משוער בזמן הנחת מבנה
 
@@ -713,7 +831,10 @@ function computeCoverage(){
     if(b.noRoad) continue;
     if(b.staff<0.25){ b.noStaff=true; continue; }
     if(d.needWater&&!b.water){ b.noWater=true; continue; }
-    walkFill(cov[d.svc],b,Math.round(d.walk*(0.5+0.5*b.staff)));
+    const range=Math.round(d.walk*(0.5+0.5*b.staff));
+    walkFill(cov[d.svc],b,range);
+    // מקדש של כל אל מספק גם "דת" כללית לצורך שדרוג הבתים
+    if(d.god) walkFill(cov.relig,b,range);
   }
 }
 
@@ -747,9 +868,10 @@ function missingFor(b,L){
    רעב הורג תוך חודשים, שריפה היא סיכון מזדמן. לכן מזון לפני ביטחון —
    אחרת שני משמרות עיר בולעים את כל העובדים של כפר, והחוות נשארות ריקות. */
 const PRIO={wheat:1,veg:1,fruit:1, granary:2,market:2, forum:3,
-  prefect:4,engineer:4, temple:5,doctor:5,
+  prefect:4,engineer:4,
+  t_ceres:5,t_neptune:5,t_mercury:5,t_mars:5,t_venus:5,doctor:5,
   claypit:6,olivegrv:6,flaxfield:6, warehouse:6, pottery:7,oilpress:7,weaver:7,
-  baths:8,theatre:8};
+  baths:8,theatre:8,school:8};
 function assignWorkers(){
   S.workers=Math.floor(S.pop*0.38);
   const tiers=new Map(); let need=0;
@@ -934,12 +1056,16 @@ function monthTick(){
     if(d.home&&b.level<=1) continue; // אוהלים ובקתות פטורים, כדי שהעיר הצעירה תשרוד
     const i=idx(b.x,b.y);
     if(!cov.fire[i] && Math.random()<0.0007){
-      destroy(b,true); toast('🔥 שריפה! בנה משמר עיר בקרבת מקום'); continue;
+      destroy(b,true); S.peace=clamp(S.peace-0.6,0,100);
+      toast('🔥 שריפה! בנה משמר עיר בקרבת מקום'); continue;
     }
-    if(!cov.eng[i] && Math.random()<0.0005){ destroy(b,true); toast('🧱 מבנה קרס — חסר מהנדס עיר'); }
+    if(!cov.eng[i] && Math.random()<0.0005){ destroy(b,true); S.peace=clamp(S.peace-0.6,0,100);
+      toast('🧱 מבנה קרס — חסר מהנדס עיר'); }
   }
 
-  /* ---- אירועים ויועץ ---- */
+  /* ---- אלים, אירועים ויועץ ---- */
+  updateGods();
+  godWrath();
   if(S.drought>0) S.drought--;
   rollEvent();
   S.msgs++;
@@ -1910,11 +2036,13 @@ function drawHouse(b,x,y){
 }
 
 /* צבע גג לכל סוג — משמש בציור המרוחק, שבו כל הפרטים ממילא נבלעים */
-const LOD_COL={house:'#a85a3c',temple:'#a3573b',forum:'#c9a94e',theatre:'#d2c5a6',
+const LOD_COL={house:'#a85a3c',forum:'#c9a94e',theatre:'#d2c5a6',
   market:'#c1503d',granary:'#c7b28c',baths:'#dcd0b0',doctor:'#4f7d8f',prefect:'#a03a2c',
   engineer:'#4a5566',well:'#8d8372',fountain:'#bcd6e2',reservoir:'#b9c9d4',aqueduct:'#bcb098',
   wheat:'#d3b551',veg:'#69a044',fruit:'#5a8a3a',pottery:'#9c4f30',oilpress:'#5f6b34',
-  weaver:'#6a4b74',statue:'#e8e0cc',obelisk:'#e0b165'};
+  weaver:'#6a4b74',statue:'#e8e0cc',obelisk:'#e0b165',
+  t_ceres:'#bda63c',t_neptune:'#3f8bb0',t_mercury:'#a87340',t_mars:'#bb4634',t_venus:'#96608e',
+  school:'#8570a0',claypit:'#a3603c',olivegrv:'#7f9268',flaxfield:'#9aa9d6',warehouse:'#95633f'};
 function shade(hex,f){
   const n=parseInt(hex.slice(1),16);
   const r=Math.round(((n>>16)&255)*f), g2=Math.round(((n>>8)&255)*f), b2=Math.round((n&255)*f);
@@ -2306,17 +2434,38 @@ function drawB(b){
       if(b.noRoad) warn(x,y,s,'🚧'); else if(b.noStaff) warn(x,y,s,'👷');
       break;
     }
-    case 'temple': {
+    case 't_ceres': case 't_neptune': case 't_mercury': case 't_mars': case 't_venus': {
+      // כל אל וצבע הגג שלו, כדי לזהות מרחוק מי חסר בשכונה
+      const GC={t_ceres:['#9c8a2e','#bda63c'], t_neptune:['#2f6d8f','#3f8bb0'],
+                t_mercury:['#8a5a2c','#a87340'], t_mars:['#9c3628','#bb4634'],
+                t_venus:['#7a4a74','#96608e']}[b.t];
       shadow(x,y,s,26);
       podium(x,y,s,7,'#e9e0c8','#b3a98d','#d4c9ac');
-      box(x+0.26,y+0.26,s-0.52,9.5+19,'#efe7d2','#bdb296','#dbd0b3'); // צלה
+      box(x+0.26,y+0.26,s-0.52,9.5+19,'#efe7d2','#bdb296','#dbd0b3');
       colonnade(x+0.1,y+0.1,s-0.2,9.5,19,3,4.2);
-      slab(x+0.04,y+0.04,s-0.08,28.5,4,'#f7f0dc','#c6bb9f','#e4d9bc');  // כרכוב
-      const r=gable(x,y,s,32.5,11,'#9c5138','#b8613f','#f2e8cf');
-      // עיטור בגמלון
+      slab(x+0.04,y+0.04,s-0.08,28.5,4,'#f7f0dc','#c6bb9f','#e4d9bc');
+      const r=gable(x,y,s,32.5,11,GC[0],GC[1],'#f2e8cf');
       const f=r.front, cx2=(f[0][0]+f[1][0]+f[2][0])/3, cy2=(f[0][1]+f[1][1]+f[2][1])/3;
       ctx.fillStyle='#c9a94e';
-      ctx.beginPath();ctx.arc(cx2,cy2,3.6,0,6.3);ctx.fill();
+      ctx.beginPath();ctx.arc(cx2,cy2,3.8,0,6.3);ctx.fill();
+      ctx.fillStyle='#2e2415'; ctx.font='700 8px -apple-system,sans-serif'; ctx.textAlign='center';
+      ctx.fillText({t_ceres:'C',t_neptune:'N',t_mercury:'M',t_mars:'X',t_venus:'V'}[b.t],cx2,cy2+3);
+      if(b.noRoad) warn(x,y,s,'🚧');
+      break;
+    }
+    case 'school': {
+      shadow(x,y,1,14);
+      diamond(x,y,1); ctx.fillStyle='#a89c80'; ctx.fill();
+      box(x+0.08,y+0.08,0.66,13,'#e8dfc6','#a99f86','#cfc5a9');
+      gable(x+0.04,y+0.04,0.74,13.5,6,'#6f5a8a','#8570a0','#ded4bc');
+      const p=V(x+0.5,y+0.5);
+      // מגילות על מדף בכניסה
+      ctx.fillStyle='#8a7450'; ctx.fillRect(p[0]+6,p[1]-11,9,2);
+      for(let k=0;k<3;k++){ ctx.fillStyle=['#e6dcc0','#d8ccae','#efe7d2'][k];
+        ctx.fillRect(p[0]+6.5+k*3,p[1]-15,2.2,4); }
+      ctx.fillStyle='#4b3826'; ctx.fillRect(p[0]-2.4,p[1]-11,4.8,6);
+      // עמוד קטן בכניסה
+      column(x+0.16,y+0.94,0,11,3);
       if(b.noRoad) warn(x,y,s,'🚧');
       break;
     }
@@ -2815,22 +2964,57 @@ function showPanel(b){
 }
 
 /* --- תפריט ראשי --- */
-$('bMenu').onclick=()=>{
+const RATING_COL=v=>v>=70?'linear-gradient(90deg,#7bb04a,#a8d472)'
+  :v>=45?'linear-gradient(90deg,#c9a94e,#e8d18a)':'linear-gradient(90deg,#b8503a,#d4785c)';
+function renderMenu(){
+  const r=ratings();
+  $('menuCity').textContent=S.name;
+  $('menuRank').textContent=RANKS[S.rank][1]+' • '+MONTHS[S.month]+' '+Math.abs(S.year)+' לפנה"ס';
+  $('menuRatings').innerHTML=[['תרבות',r.culture],['שגשוג',r.prosperity],
+      ['שלום',r.peace],['חסד הקיסר',r.favor]]
+    .map(x=>'<div class="rrow"><span class="rn">'+x[0]+'</span>'+
+      '<span class="rb"><i style="width:'+x[1]+'%;background:'+RATING_COL(x[1])+'"></i></span>'+
+      '<span class="rv">'+x[1]+'</span></div>').join('');
+  const cell=(label,val,cls)=>'<div class="cell'+(cls?' '+cls:'')+'"><span>'+label+'</span><b>'+val+'</b></div>';
+  const net=Math.round(S.income-S.expense);
   $('menuStats').innerHTML=
-    'העיר: <b>'+S.name+'</b><br>'+
-    'דרגת העיר: <b>'+RANKS[S.rank][1]+'</b><br>'+
-    'הכנסות חודשיות: <b>'+Math.round(S.income)+' ₪</b>'+
-      (S.trade?' <span style="opacity:.7">(מתוכן '+Math.round(S.trade)+' ₪ ממלאכה)</span>':'')+'<br>'+
-    'הוצאות חודשיות: <b>'+Math.round(S.expense)+' ₪</b><br>'+
-    'מקומות עבודה: <b>'+S.jobs+'</b> • כוח עבודה: <b>'+S.workers+'</b><br>'+
-    'אבטלה: <b>'+Math.round(S.unemp*100)+'%</b><br>'+
-    'מבנים בעיר: <b>'+Object.keys(S.bl).length+'</b><br>'+
-    '<span style="opacity:.75">סחורות:</span> כדים <b>'+Math.round(S.goods.pot)+
-    '</b> • שמן <b>'+Math.round(S.goods.oil)+'</b> • בדים <b>'+Math.round(S.goods.cloth)+'</b><br>'+
-    '<span style="opacity:.75">חומרי גלם:</span> חימר <b>'+Math.round(S.raw.clay)+
-    '</b> • זיתים <b>'+Math.round(S.raw.olive)+'</b> • פשתן <b>'+Math.round(S.raw.flax)+'</b>';
-  $('mMenu').classList.add('show');
+    cell('אוכלוסייה',fmt(S.pop))+
+    cell('אוצר',fmt(S.money)+' ₪',S.money<0?'bad':'')+
+    cell('הכנסה חודשית',Math.round(S.income)+' ₪')+
+    cell('הוצאה חודשית',Math.round(S.expense)+' ₪')+
+    cell('מאזן חודשי',(net>=0?'+':'')+net+' ₪',net>=0?'good':'bad')+
+    cell('מתוכן ממלאכה',Math.round(S.trade)+' ₪')+
+    cell('כוח עבודה',S.employed+' / '+S.workers)+
+    cell('אבטלה',Math.round(S.unemp*100)+'%',S.unemp>0.25?'bad':'')+
+    cell('מקומות עבודה',S.jobs,S.jobs>S.workers?'bad':'')+
+    cell('מבנים',Object.keys(S.bl).length)+
+    '<div class="cell wide2"><span>סחורות במחסנים</span><b>🏺 '+Math.round(S.goods.pot)+
+      ' &nbsp; 🫒 '+Math.round(S.goods.oil)+' &nbsp; 🧵 '+Math.round(S.goods.cloth)+'</b></div>'+
+    '<div class="cell wide2"><span>חומרי גלם</span><b>חימר '+Math.round(S.raw.clay)+
+      ' &nbsp; זיתים '+Math.round(S.raw.olive)+' &nbsp; פשתן '+Math.round(S.raw.flax)+'</b></div>';
+  $('menuGods').innerHTML=GODS.map(gd=>{
+    const v=Math.round(S.gods[gd.k]);
+    return '<div class="gd'+(v<25?' angry':'')+'" title="'+gd.of+'">'+
+      '<div class="ge">'+gd.em+'</div><div class="gn">'+gd.n+'</div><div class="gv">'+v+'</div></div>';
+  }).join('');
+  $('festCost').textContent=fmt(festivalCost())+' ₪';
+  $('bFestival').classList.toggle('dim',S.money<festivalCost());
+}
+function festivalCost(){ return Math.max(200,Math.round(S.pop*3.5)); }
+$('bFestival').onclick=()=>{
+  const c=festivalCost();
+  if(S.money<c){ toast('אין מספיק כסף לפסטיבל'); return; }
+  ask('לערוך פסטיבל?','פסטיבל לכבוד האלים יעלה '+fmt(c)+' ₪, ישפר את חסד כל האלים ויעלה את מצב רוח התושבים.',
+    'ערוך פסטיבל — '+fmt(c)+' ₪',()=>{
+      S.money-=c; S.festivals++;
+      for(const gd of GODS) S.gods[gd.k]=clamp(S.gods[gd.k]+13,0,100);
+      S.mood=clamp(S.mood+7,0,100);
+      S.emperor=clamp(S.emperor+4,0,100);
+      toast('🎉 העיר חוגגת! האלים מרוצים');
+      renderMenu(); updateUI();
+    });
 };
+$('bMenu').onclick=()=>{ renderMenu(); $('mMenu').classList.add('show'); };
 $('bClose').onclick=()=>$('mMenu').classList.remove('show');
 $('bHelp').onclick=()=>{ $('mMenu').classList.remove('show'); $('mIntro').classList.add('show'); };
 $('bSave').onclick=()=>openSlots('save');
@@ -2860,7 +3044,7 @@ const SLOTS=3, slotKey=n=>SAVE_KEY+'-slot'+n;
 function serialize(){
   return {v:2,name:S.name,seed:S.seed,mission:S.mission,won:S.won,
     money:S.money,month:S.month,year:S.year,tax:S.tax,evCool:S.evCool,drought:S.drought,
-    raw:S.raw,goods:S.goods,
+    raw:S.raw,goods:S.goods,gods:S.gods,peace:S.peace,emperor:S.emperor,festivals:S.festivals,
     mood:S.mood,food:S.food,rank:S.rank,nextId:S.nextId,speed:S.speed,pop:S.pop,
     at:Date.now(),cam:{x:cam.x,y:cam.y,z:cam.z},cut:S.cleared,
     rub:Array.from(S.rubble).map((v,i)=>v?i:-1).filter(i=>i>=0),
@@ -2873,6 +3057,10 @@ function applySave(o){
   S.evCool=o.evCool==null?40:o.evCool; S.drought=o.drought||0;
   if(o.raw) S.raw=Object.assign(S.raw,o.raw);
   if(o.goods) S.goods=Object.assign(S.goods,o.goods);
+  if(o.gods) S.gods=Object.assign(S.gods,o.gods);
+  if(o.peace!=null) S.peace=o.peace;
+  if(o.emperor!=null) S.emperor=o.emperor;
+  S.festivals=o.festivals||0;
   S.money=o.money;S.month=o.month;S.year=o.year;S.tax=o.tax;S.mood=o.mood;S.food=o.food;
   S.rank=o.rank||0;S.nextId=o.nextId||1;S.speed=o.speed==null?1:o.speed;
   for(const i of (o.rub||[])) S.rubble[i]=1;
@@ -2880,9 +3068,11 @@ function applySave(o){
   S.cleared=o.cut||[];
   for(const i of S.cleared) if(S.terr[i]===T_TREE) S.terr[i]=T_GRASS;
   for(const a of (o.bl||[])){
-    const d=B[a[1]]; if(!d) continue;
-    const b={id:a[0],t:a[1],x:a[2],y:a[3],s:d.s,people:a[4],level:a[5],staff:0,hunger:a[6]||0,age:a[7]||0,
-      water:false,des:0,prod:0};
+    // תאימות לשמירות ישנות: המקדש הגנרי הפך למקדשי האלים
+    let t=a[1]; if(t==='temple') t='t_ceres';
+    const d=B[t]; if(!d) continue;
+    const b={id:a[0],t:t,x:a[2],y:a[3],s:d.s,people:a[4],level:a[5],staff:0,hunger:a[6]||0,age:a[7]||0,
+      water:false,des:0,prod:0,g:{pot:0,oil:0,cloth:0}};
     S.bl[b.id]=b;
     for(const[X,Y]of tiles(b)) S.occ[idx(X,Y)]=b.id;
   }
@@ -3151,8 +3341,8 @@ function demoCity(){
   const row=(y,list)=>{ let x=6; for(const t of list){ P(t,x,y); x+=B[t].s+1; } };
   for(let x=4;x<=30;x++){ place('road',x,y0+4,true); place('road',x,y0+9,true); place('road',x,y0+14,true); }
   for(let x=4;x<=30;x++) place('road',x,y0+19,true);
-  row(y0+5,['temple','theatre','forum','market']);
-  row(y0+10,['granary','baths','doctor','prefect','engineer','well']);
+  row(y0+5,['t_ceres','t_neptune','forum','market']);
+  row(y0+10,['granary','baths','doctor','school','prefect','engineer','well']);
   row(y0+15,['wheat','veg','fruit','statue','obelisk','plaza']);
   row(y0+20,['claypit','pottery','warehouse']);
   for(let x=4;x<=30;x++) place('road',x,y0+24,true);
@@ -3202,7 +3392,8 @@ function demoTown(){
       const b=bAt(x,y); if(b&&B[b.t].home) remove(b,false);
       if(P(t,x,y))d++;}
     return d;};
-  put('temple',2); put('forum',1); put('theatre',1); put('market',3); put('granary',2);
+  put('t_ceres',1); put('t_venus',1); put('t_mercury',1);
+  put('forum',1); put('theatre',1); put('market',3); put('granary',2); put('school',2);
   put('prefect',3); put('engineer',2); put('doctor',2); put('baths',1);
   put('well',5); put('garden',10); put('statue',4); put('plaza',6); put('obelisk',1);
   for(let x=4;x<GRID-4;x++)for(let y=4;y<GRID-4;y++)
